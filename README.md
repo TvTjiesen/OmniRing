@@ -17,9 +17,9 @@
 
 ## 为什么需要这个 fork
 
-HyperOS 3 将 `dumpsys input` 的 `InputFilterEnabled` 强制置为 `false`，于是系统不再调用
+HyperOS 4 将 `dumpsys input` 的 `InputFilterEnabled` 强制置为 `false`，于是系统不再调用
 `InputManagerService.filterInputEvent` —— 那是上游模块唯一的硬件事件入口，**上游 13 个动作
-在 HyperOS 3 上全部失效**（写 `settings put global input_filter_enabled 1` 也会被 ROM 忽略）。
+在 HyperOS 4 上全部失效**（写 `settings put global input_filter_enabled 1` 也会被 ROM 忽略）。
 
 本 fork 把触发源换成 `mt350x OPTICALTRACKING` 传感器的数据流，绕开整条输入管线，
 并在此之上补齐了滚动与视频进度两件事。
@@ -130,11 +130,11 @@ App 内「设置 → 致谢」同样列出这些项目并可直达仓库。
 ## 已知限制
 
 - 环只有旋转、没有按压，所以"半按对焦全按快门"这类做不到。
-- HyperOS 3 的列表不响应 `AXIS_SCROLL`/`AXIS_VSCROLL`（实测各注入 12 次截图零变化），
+- HyperOS 4 的列表不响应 `AXIS_SCROLL`/`AXIS_VSCROLL`（实测各注入 12 次截图零变化），
   因此滚动是**合成真实触摸拖拽**实现的。
 - 小米自带播放器与 B站 竖屏详情页**不发布 MediaSession**，这类应用的进度只能靠横向拖拽；
   B站 竖屏详情页整页被应用自己的"竖屏连播"接管，那里环管不了进度（横屏全屏正常）。
-- 只在 Xiaomi 17 Ultra（`nezha`）+ HyperOS 3 / Android 16 上实测过。
+- 只在 Xiaomi 17 Ultra（`nezha`）+ HyperOS 4 / Android 17 上实测过。
 
 - **更新 APK 后要在 LSPosed 里确认模块还加载着**：`adb install -r` 会换 `codePath`，
   LSPosed 的 db 要一会儿才跟上；装完立刻重启框架，开机时它会报

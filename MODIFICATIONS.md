@@ -13,7 +13,7 @@
 
 ## 为什么要二改
 
-HyperOS 3 把 `dumpsys input` 里的 `InputFilterEnabled` 强制置为 `false`，Android 因此
+HyperOS 4 把 `dumpsys input` 里的 `InputFilterEnabled` 强制置为 `false`，Android 因此
 不再调用 `InputManagerService.filterInputEvent` —— 而上游模块**唯一**的硬件事件捕获点
 就是它。结果：上游 13 个动作在这台机器上全部失效，且写 `settings put global
 input_filter_enabled 1` 也救不回来（ROM 层忽略）。本次二改把触发源整体换成
@@ -107,7 +107,7 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 
 ## 实测踩到的系统限制（给后来人，别再走一遍）
 
-1. **HyperOS 3 掐死输入捕获**：`InputFilterEnabled=false` → 上游唯一的硬件事件入口
+1. **HyperOS 4 掐死输入捕获**：`InputFilterEnabled=false` → 上游唯一的硬件事件入口
    `InputManagerService.filterInputEvent` 根本不被调用；`settings put global
    input_filter_enabled 1` 扛过重启也没用。所以触发源换成传感器。
 2. **App 的设置到不了 system_server**（"全局手势改了没反应"的真根因），三条路全实测走死：

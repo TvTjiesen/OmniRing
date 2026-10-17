@@ -26,7 +26,7 @@ import xyz.nextalone.hyperzoomring.ring.ZoomRingEvent
  * 算法本体在 CrownModel（纯计算、无 Android 依赖），可以在 PC 上用真机录制的样本
  * 回放并跑单元测试，因此手感调优不需要反复重启手机 —— 只有模型改动收敛后才上一版机。
  *
- * 为什么不用输入事件：HyperOS 3 把 InputFilterEnabled 强制关成 false，Android 不再调用
+ * 为什么不用输入事件：HyperOS 4 把 InputFilterEnabled 强制关成 false，Android 不再调用
  * InputManagerService.filterInputEvent，那是上游模块唯一的硬件捕获点，于是 13 个动作全废。
  *
  * 为什么方向不完全取自古势槽位：四个槽位（顺慢/顺快/逆慢/逆快）只要残留别的映射，快慢就会
@@ -254,7 +254,7 @@ object SensorRingDriver {
     /**
      * 一次分发的记账：心跳 + 诊断广播都从这里出去。
      *
-     * 广播是诊断页的数据来源。上游那条只在输入事件路径上发，而 HyperOS 3 根本不走那条，
+     * 广播是诊断页的数据来源。上游那条只在输入事件路径上发，而 HyperOS 4 根本不走那条，
      * 所以诊断页永远 0 条 —— 用户说"诊断功能一直没生效"就是这个。
      * 这里 200ms 节流一次：转环时一秒最多发 5 条，不白烧 system_server 的 binder。
      */

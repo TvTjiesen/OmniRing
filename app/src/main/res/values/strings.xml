@@ -60,7 +60,7 @@
     <string name="about_features">模块特点</string>
     <string name="about_feature_scroll">表冠式滚动：转向决定上下、转多少滚多少，慢转接近 1:1，来回转立刻换向不抽搐</string>
     <string name="about_feature_seek">视频进度环：横屏看片自动把滚动变成调进度，暂停时也能调；有 MediaSession 走绝对定位，没有就拖播放器自己的进度条</string>
-    <string name="about_feature_sensor">不依赖输入过滤器：HyperOS 3 关掉了系统的事件过滤，本模块改从变焦环的光学传感器数据流取事件</string>
+    <string name="about_feature_sensor">不依赖输入过滤器：HyperOS 4 关掉了系统的事件过滤，本模块改从变焦环的光学传感器数据流取事件</string>
     <string name="about_feature_hot">热调参：手感参数走系统设置项，改完约 0.4 秒生效，不用重装也不用重启框架</string>
     <string name="about_tech">技术路径</string>
     <string name="about_tech_body">mt350x 光学追踪传感器 → 表冠模型（重锚定、回差棘轮、按时间衰减的峰值速度）→ 单误差直驱 → 合成真实触摸事件注入前台窗口；进度链路优先反射调用系统 MediaSession，失败再退回拖拽。</string>
@@ -81,7 +81,7 @@
     <string name="sysinfo_os">系统 ROM</string>
     <string name="sysinfo_sdk">SDK / 目标版本</string>
     <string name="sysinfo_support">适配状态</string>
-    <string name="sysinfo_support_yes">已实测机型（Xiaomi 17 Ultra 徕卡版 · HyperOS 3）</string>
+    <string name="sysinfo_support_yes">已实测机型（Xiaomi 17 Ultra 徕卡版 · HyperOS 4）</string>
     <string name="sysinfo_support_no">未在此机型上实测，变焦环链路可能不存在或不生效</string>
     <string name="sysinfo_loaded">模块加载状态</string>
     <string name="sysinfo_loaded_yes">已注入系统框架</string>
@@ -89,7 +89,7 @@
     <string name="sysinfo_scope">作用域</string>
     <string name="sysinfo_scope_value">System Framework（system）</string>
     <string name="sysinfo_input_filter">输入过滤器</string>
-    <string name="sysinfo_input_filter_hint">HyperOS 3 已强制关闭，本模块因此走传感器通道，不受它影响</string>
+    <string name="sysinfo_input_filter_hint">HyperOS 4 已强制关闭，本模块因此走传感器通道，不受它影响</string>
 
     <string name="home_module_state">模块状态</string>
     <string name="home_enable">启用变焦环</string>
@@ -228,4 +228,22 @@
     <string name="diag_selftest_btn">运行注入自测</string>
     <string name="stage_hint_ring">转动大师变焦环 · 点任意处退出</string>
     <string name="stage_hint_fallback">没收到变焦环数据，可先用手指转 · 原因见首页状态卡</string>
+    <string name="compat_title">本机与适配</string>
+    <string name="compat_level_full">完整适配</string>
+    <string name="compat_level_setup">可用 · 还差一步</string>
+    <string name="compat_level_partial">部分适配（未实测）</string>
+    <string name="compat_level_unsupported">未适配</string>
+    <string name="compat_level_checking">检测中…</string>
+    <string name="compat_score">%1$d/%2$d 项通过</string>
+    <string name="compat_check_device">机型</string>
+    <string name="compat_check_os">系统</string>
+    <string name="compat_check_path">技术路径</string>
+    <string name="compat_check_loaded">模块加载</string>
+    <string name="compat_check_ring">环数据</string>
+    <string name="compat_path_sensor">传感器通道（本 ROM 关掉了输入过滤）</string>
+    <string name="compat_loaded_ok">已加载并在跑</string>
+    <string name="compat_loaded_pending">待重启作用域</string>
+    <string name="compat_loaded_no">未被加载</string>
+    <string name="compat_ring_seen">累计 %1$d 次有效样本</string>
+    <string name="compat_ring_none">开机后还没收到环数据</string>
 </resources>

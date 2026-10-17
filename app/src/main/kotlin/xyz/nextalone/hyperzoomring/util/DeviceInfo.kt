@@ -30,6 +30,42 @@ object DeviceInfo {
             Build.DISPLAY,
         )
 
+    /**
+     * HyperOS 的完整版本号，例如 `HyperOS 4.0.0.22`。
+     *
+     * 为什么不用 `ro.miui.ui.version.name`：那台机子上它是 `V816`，是 MIUI 框架的内部序号，
+     * 不是用户认得的"HyperOS 4"。真正能读出来的是
+     * `ro.build.version.incremental = OS4.0.0.22.XPACNXM`，退一步才是 `ro.mi.os.version.name = OS4.0`。
+     * 2026-10-17 他纠正"我的手机是 HyperOS 4 安卓 17"之后，全仓的口径都改成了从设备现读。
+     */
+    val hyperOsVersion: String
+        get() = hyperOsFrom(
+            incremental = prop("ro.build.version.incremental"),
+            name = prop("ro.mi.os.version.name"),
+            code = prop("ro.mi.os.version.code"),
+            fallback = osVersion,
+        )
+
+    /** 纯函数，单测直接喂真机读到的那几串（我把系统版本写错过一次，这次钉住它） */
+    internal fun hyperOsFrom(incremental: String, name: String, code: String, fallback: String): String {
+        Regex("""OS(\d+(?:\.\d+)+)\.""").find(incremental)?.groupValues?.get(1)?.let { return "HyperOS $it" }
+        if (name.isNotBlank()) return "HyperOS ${name.removePrefix("OS")}"
+        if (code.isNotBlank()) return "HyperOS $code"
+        return fallback
+    }
+
+    /** HyperOS 主版本号（4 = HyperOS 4）。认不出来 = 0，调用方按"未知"处理 */
+    val hyperOsMajor: Int
+        get() {
+            val v = hyperOsVersion
+            if (!v.startsWith("HyperOS")) return 0
+            return Regex("""\d+""").find(v)?.value?.toIntOrNull() ?: 0
+        }
+
+    /** 设置页展示的一行系统说明：`HyperOS 4.0.0.22 · Android 17（SDK 37）` */
+    val osLine: String
+        get() = "$hyperOsVersion · Android $androidVersion（SDK $sdkInt）"
+
     val isSupportedDevice: Boolean get() = Build.DEVICE == SUPPORTED_DEVICE
 
     /** 给设置页展示的一行机型说明 */

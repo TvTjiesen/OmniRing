@@ -119,6 +119,11 @@ fun SettingsScreen(
             }
         }
 
+        // 本机与适配：机型 / 当前系统版本 / 适配程度，数字全部从设备现读（2026-10-17 他要的）。
+        // 放在第一屏是因为它回答的是"我这台到底行不行、还差哪一步"，不该藏在二级页里。
+        item { SectionTitle(stringResource(R.string.compat_title), top = true) }
+        item { AdaptationCard() }
+
         item { SectionTitle(stringResource(R.string.settings_theme), top = true) }
         item {
             Card {

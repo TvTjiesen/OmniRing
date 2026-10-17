@@ -59,7 +59,7 @@
     <string name="about_features">Что умеет</string>
     <string name="about_feature_scroll">Прокрутка как коронка: направление — по стороне вращения, расстояние — по тому, насколько повернули; медленный поворот почти 1:1, реверс срабатывает сразу</string>
     <string name="about_feature_seek">Кольцо позиции видео: в альбомной ориентации прокрутка становится перемоткой, работает и на паузе; при наличии MediaSession — точная перемотка, иначе тянется полоса самого плеера</string>
-    <string name="about_feature_sensor">Не зависит от фильтра ввода: в HyperOS 3 он отключён, поэтому события читаются прямо с оптического сенсора кольца</string>
+    <string name="about_feature_sensor">Не зависит от фильтра ввода: в HyperOS 4 он отключён, поэтому события читаются прямо с оптического сенсора кольца</string>
     <string name="about_feature_hot">Живая подстройка: параметры читаются из системных настроек и применяются примерно за 0,4 с — без переустановки и перезапуска</string>
     <string name="about_tech">Как устроено</string>
     <string name="about_tech_body">Оптический сенсор mt350x → модель коронки (перепривязка, трещотка люфта, затухание пиковой скорости по времени) → одна ошибка рассогласования управляет списком → в окно на переднем плане подмешиваются настоящие касания. Перемотка сначала пробуется через системный MediaSession, при неудаче — перетаскиванием.</string>
@@ -80,7 +80,7 @@
     <string name="sysinfo_os">Оболочка</string>
     <string name="sysinfo_sdk">SDK / целевая версия</string>
     <string name="sysinfo_support">Статус поддержки</string>
-    <string name="sysinfo_support_yes">Проверено на этом устройстве (Xiaomi 17 Ultra Leica · HyperOS 3)</string>
+    <string name="sysinfo_support_yes">Проверено на этом устройстве (Xiaomi 17 Ultra Leica · HyperOS 4)</string>
     <string name="sysinfo_support_no">На этом устройстве не проверялось — канал кольца может отсутствовать или не работать</string>
     <string name="sysinfo_loaded">Загрузка модуля</string>
     <string name="sysinfo_loaded_yes">Внедрён в системный фреймворк</string>
@@ -88,7 +88,7 @@
     <string name="sysinfo_scope">Область действия</string>
     <string name="sysinfo_scope_value">System Framework (system)</string>
     <string name="sysinfo_input_filter">Фильтр ввода</string>
-    <string name="sysinfo_input_filter_hint">В HyperOS 3 принудительно выключен, поэтому модуль идёт через сенсор и от него не зависит</string>
+    <string name="sysinfo_input_filter_hint">В HyperOS 4 принудительно выключен, поэтому модуль идёт через сенсор и от него не зависит</string>
 
     <string name="home_module_state">Состояние модуля</string>
     <string name="home_enable">Включить кольцо зума</string>
@@ -227,4 +227,22 @@
     <string name="diag_selftest_btn">Запустить самопроверку</string>
     <string name="stage_hint_ring">Крутите кольцо зума · нажмите, чтобы выйти</string>
     <string name="stage_hint_fallback">Событий с кольца нет — покрутите пальцем. См. карту состояния на главной</string>
+    <string name="compat_title">Устройство и совместимость</string>
+    <string name="compat_level_full">Полная поддержка</string>
+    <string name="compat_level_setup">Работает · нужен ещё шаг</string>
+    <string name="compat_level_partial">Частично (не проверялось)</string>
+    <string name="compat_level_unsupported">Не поддерживается</string>
+    <string name="compat_level_checking">Проверка…</string>
+    <string name="compat_score">Пройдено %1$d из %2$d</string>
+    <string name="compat_check_device">Устройство</string>
+    <string name="compat_check_os">Система</string>
+    <string name="compat_check_path">Канал событий</string>
+    <string name="compat_check_loaded">Модуль загружен</string>
+    <string name="compat_check_ring">Данные кольца</string>
+    <string name="compat_path_sensor">Канал сенсора (эта ROM отключает фильтр ввода)</string>
+    <string name="compat_loaded_ok">Загружен и работает</string>
+    <string name="compat_loaded_pending">Нужна перезапуск области</string>
+    <string name="compat_loaded_no">Не загружен</string>
+    <string name="compat_ring_seen">Валидных событий: %1$d</string>
+    <string name="compat_ring_none">С момента загрузки данных нет</string>
 </resources>

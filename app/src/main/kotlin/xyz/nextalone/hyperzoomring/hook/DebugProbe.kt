@@ -30,7 +30,7 @@ object DebugProbe {
      * 实测出现过 App 进程是新代码、system_server 还是旧代码的情况），
      * 所以每条回显都带上这个戳，一眼看出到底加载的是哪一版。
      */
-    const val BUILD_TAG = "cfg37"
+    const val BUILD_TAG = "cfg38"
 
     /**
      * 哪条入口真的把模块带进了 system_server：`legacy` / `modern102` / `none`。

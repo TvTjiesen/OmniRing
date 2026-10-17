@@ -36,7 +36,7 @@ object ScrollCrownAction : Action {
 /**
  * 表冠滚动的触摸注入。
  *
- * 为什么不用滚动轴：实测 HyperOS 3 的列表不响应 AXIS_SCROLL / AXIS_VSCROLL
+ * 为什么不用滚动轴：实测 HyperOS 4 的列表不响应 AXIS_SCROLL / AXIS_VSCROLL
  * （各注入 12 次，截图像素零变化，而同环境手指式 swipe 有效），只认真实触摸序列。
  *
  * 运动模型：数值部分在 [ScrollTracker]（纯类，能在 PC 上用真机样本回放、有单元测试）。
