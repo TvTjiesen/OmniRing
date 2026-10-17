@@ -153,7 +153,7 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 | 玻璃热调改事件驱动 | `ui/GlassTuning.kt`、`ui/MainActivity.kt` | `ContentObserver(Settings.Global.CONTENT_URI)` 取代 800ms 轮询，15 秒兜底；带 `observerHits/pollHits` 计数自证 |
 | 热调值必须穿透到子组件 | `ui/RestartControl.kt`、`ui/MainActivity.kt` | `liveBlur` 由调用方 `remember(glassTick)` 算好传参；新增 `hzr_glass_btn_live` |
 | release 交付 | `app/build.gradle.kts`、`app/proguard-rules.pro`、`gradle.properties`、`settings.gradle.kts` | R8 全模式 + 资源收缩；keep 住"靠名字"的四处（Xposed 入口类、Miuix 采样层方法名、枚举、行号表）；无 `KEYSTORE_FILE` 时签名回落调试库；`localmaven/` 绕开 dl.google.com 超时；关掉 release lint |
-| 品牌与发布材料 | `brand/`、`.gitignore`、`.github/workflows/build.yml` | 海报由 `build/make_poster.py`（SVG 几何）+ 无头 Edge 生成；CI 产物改名 `OmniRing-*`；`shots/`、`localmaven/`、`brand/tmp/`、`backups/` 加入 ignore |
+| 品牌与发布材料 | `brand/`、`.gitignore`、`.github/workflows/build.yml` | 海报由本地脚本（不进仓库）生成，仓库里只放定稿 `brand/poster_final.png|jpg`；CI 产物改名 `OmniRing-*`；`shots/`、`localmaven/`、`brand/tmp/`、`backups/` 加入 ignore |
 
 体积与性能实测见 README 的「性能与体积」一节；所有数字都在真机（Xiaomi 17 Ultra 徕卡版）上量得。
 
@@ -169,6 +169,6 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 | 滑块高光补回 | 同上 | `pillHighlight = rememberGravityRotatedHighlight(iosIndicatorSpecular, extraDegrees = 90f)`，上一版随滑块一起被我删了 |
 | 抖动仍按根因关掉 | 同上 | 滑块 `graphicsLayer` 只留 `translationX`；velocity 拉伸与按压 78/56 气球不再挂到滑块上（spring 欠阻尼回弹会来回过冲） |
 | 黑块仍有存活闸门 | `ui/GlassBar.kt`、同上 | `isBlurActive` 为假时滑块退化成 accent 半透明胶囊，宁可「不糊」也不能画实心黑 |
-| 宣传图 v5 | `brand/`、`build/make_poster_v5.py`、`build/render_poster_v5.sh` | 画面交给 AI 关键视觉（横放机身 + 赛璐璐手绘手 + 镜组中心换成自家 C 弧 logo），文字全部我们自己排；出 16:9 主图 / 1:1 酷安首图 / 2:1 GitHub 社交卡 |
+| 宣传图（后被他自己做的版本取代） | `brand/poster_final.png|jpg` | 我那几版（含 AI 底图与渲染脚本，都在本地不进仓库）全部作废，对外只用他这张（横放机身 + 赛璐璐手绘手 + 镜组中心换成自家 C 弧 logo），文字全部我们自己排；出 16:9 主图 / 1:1 酷安首图 / 2:1 GitHub 社交卡 |
 
 版本号：`versionCode 38` / `versionName 1.28.0-beta` / `DebugProbe.BUILD_TAG = cfg32`。
