@@ -70,3 +70,5 @@ brand/poster_wide*
 brand/og_social_preview.png
 # 做海报时裁的真机素材（含状态栏时间/电量），不外发
 brand/assets/*.png
+# agent 自己的施工计划文档（107KB，写给 AI 看的脚手架），不是产品内容
+docs/superpowers/
