@@ -39,6 +39,8 @@ object SensorRingDriver {
 
     /** 判定"快转"的速度阈值（单位/秒） */
     private const val BROADCAST_THROTTLE_MS = 200L
+    /** 隔得比这更久的累计转幅直接扔掉，不要一次性倒出去（看起来像列表自己窜了） */
+    private const val UNITS_STALE_MS = 1_000L
     private const val STAGE_BROADCAST_MS = 50L
     private const val FAST_UNITS_PER_SEC = 2200f
     /** 离散动作（音量/亮度等）每累计多少位置单位触发一次 */
@@ -46,6 +48,13 @@ object SensorRingDriver {
 
     @Volatile
     private var lastBroadcastAt = 0L
+
+    /**
+     * 节流窗口里攒下但还没发出去的转幅（单位，带符号，正负互相抵消 = 净转动量）。
+     * 2026-10-17：以前每次广播只带"最后一个样本的增量"，200ms 窗口里十个样本丢掉九个，
+     * App 内因此"转三下才滑一下、不跟手"。改成累加后一次发全，和外面那条（每样本都执行）等价。
+     */
+    private var pendingUnits = 0f
 
     private val model = CrownModel()
     private val detector = ZoomRingDetector()
@@ -86,6 +95,10 @@ object SensorRingDriver {
 
         // 里程表要在分发前记：定方向语义需要"累计转幅"，而累计量归谁管不能靠注入端猜
         scrollMode.onAccepted(model.lastDeltaUnits)
+        // 节流窗口里没发出去的样本，转幅先累起来 —— 外面那条（ScrollAction）是**每个样本都执行**，
+        // 所以不丢；里面这条以前每次广播只带"最后一个样本的增量"，50Hz 采样下 200ms 窗口里
+        // 十个样本只到九个被扔掉，App 看到的就是只转了十分之一圈 → 他说的"不跟手"。
+        pendingUnits += model.lastDeltaUnits
         deliver(context, config, tms)
     }
 
@@ -273,13 +286,19 @@ object SensorRingDriver {
         // 平时（第三方 App 里）保持 200ms，不白烧 binder。
         val limit = if (ConfigSync.stagePaused()) STAGE_BROADCAST_MS else BROADCAST_THROTTLE_MS
         if (now - lastBroadcastAt < limit) return
+        // 隔太久没发（在相机里、动作没解析出来那段时间），累计的陈年转幅直接扔掉，
+        // 不然第一次广播会一口气倒出几百像素，看起来像"手没动列表自己窜了"。
+        val gap = now - lastBroadcastAt
+        val carry = if (gap > UNITS_STALE_MS) 0f else pendingUnits
+        pendingUnits = 0f
         lastBroadcastAt = now
+        val units = if (carry == 0f) model.lastDeltaUnits else carry
         runCatching {
             context.sendBroadcast(
                 android.content.Intent(InputInterceptorHook.ACTION_ZOOM_RING_EVENT).apply {
                     setPackage("xyz.nextalone.hyperzoomring")
                     putExtra(InputInterceptorHook.EXTRA_TIMESTAMP, now)
-                    putExtra(InputInterceptorHook.EXTRA_VALUE, kotlin.math.abs(model.lastDeltaUnits).toInt())
+                    putExtra(InputInterceptorHook.EXTRA_VALUE, kotlin.math.abs(units).toInt())
                     putExtra(InputInterceptorHook.EXTRA_DIRECTION, model.dirSign)
                     putExtra(InputInterceptorHook.EXTRA_GESTURE, gesture.name)
                     putExtra(InputInterceptorHook.EXTRA_INTENSITY, intensity)

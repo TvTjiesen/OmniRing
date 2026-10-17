@@ -413,7 +413,9 @@ private fun MainContent(
                         continue
                     }
                     val tau = ringTauMs(context)
-                    val (move, applied) = RingEase.step(ringEase.target, ringEase.applied, dt, tau)
+                    val (move, applied) = RingEase.step(
+                        ringEase.target, ringEase.applied, dt, tau, ringMaxStepPx(context),
+                    )
                     ringEase.applied = applied
                     frames++
                     val a = kotlin.math.abs(move)

@@ -26,13 +26,21 @@ object RingEase {
 
     /** 单帧最多按这么长的时间推进：卡帧/后台回来时不许一次跳到目标（那又会变成一窜） */
     const val MAX_DT_MS = 64f
+    /** 单帧最大像素，和外面那条 `hzr_scroll_max_step` 同一个默认值 */
+    const val MAX_STEP_PX = 170f
 
     /**
      * 推进一帧。
      *
      * @return Pair(本帧应该滚动的像素, 新的 applied)
      */
-    fun step(target: Float, applied: Float, dtMs: Float, tauMs: Float): Pair<Float, Float> {
+    fun step(
+        target: Float,
+        applied: Float,
+        dtMs: Float,
+        tauMs: Float,
+        maxStepPx: Float = MAX_STEP_PX,
+    ): Pair<Float, Float> {
         val diff = target - applied
         if (abs(diff) < DEAD_PX) return 0f to target
         // 零长帧不推进（不能让一帧的 dt=0 变成"一次吃完"）
@@ -42,7 +50,14 @@ object RingEase {
         val dt = if (dtMs > MAX_DT_MS) MAX_DT_MS else dtMs
         val tau = if (tauMs < 1f) 1f else tauMs
         val k = 1f - exp(-dt / tau)
-        val move = diff * k
+        var move = diff * k
+        // 单帧封顶：这个 170 不是拍的，是外面那条（第三方 App 里 ScrollAction）的
+        // hzr_scroll_max_step 默认值。他要"里面和外面一样"，那最高速度也得一样，
+        // 不然一次大累计会在 16ms 里跳掉一整屏（实测过 973px/帧）。
+        if (maxStepPx > 0f) {
+            if (move > maxStepPx) move = maxStepPx
+            if (move < -maxStepPx) move = -maxStepPx
+        }
         return move to (applied + move)
     }
 
@@ -88,8 +103,13 @@ class RingEaseState {
 }
 
 /**
- * 一个传感器单位换多少滚动像素（默认 1.2，和模块侧 gain 同量级，手感才一致）。
- * 热调：`adb shell settings put global hzr_ring_px_per_unit 2.0`
+ * 一个传感器单位换多少滚动像素。**默认 1.2 就是外面那条（第三方 App 里
+ * `ScrollAction` 的 `hzr_scroll_gain`）的默认值** —— 同一个单位、同一个像素增益，
+ * 里面和外面转一样多角度就滚一样远。
+ *
+ * 之前对不上不是这个数的问题：广播那条把 200ms 窗口里除最后一个样本之外的增量全丢了，
+ * App 只看到约十分之一的转动量。那个累加补上之后，这里就该用回和外面一样的 1.2。
+ * 热调：`adb shell settings put global hzr_ring_px_per_unit 1.2`
  */
 private var pxCache = 0f
 private var pxAt = 0L
@@ -121,4 +141,24 @@ fun ringTauMs(context: android.content.Context): Float {
         }.getOrDefault(45f)
     }
     return tauCache
+}
+
+/**
+ * 单帧最大位移（像素），默认 170 = 外面那条 `hzr_scroll_max_step` 的同一个默认值。
+ * 热调：`adb shell settings put global hzr_ring_max_step 170`
+ */
+private var stepCache = 0f
+private var stepAt = 0L
+
+fun ringMaxStepPx(context: android.content.Context): Float {
+    val now = System.currentTimeMillis()
+    if (now - stepAt > 2000L) {
+        stepAt = now
+        stepCache = runCatching {
+            android.provider.Settings.Global.getFloat(
+                context.contentResolver, "hzr_ring_max_step", RingEase.MAX_STEP_PX
+            )
+        }.getOrDefault(RingEase.MAX_STEP_PX)
+    }
+    return stepCache
 }

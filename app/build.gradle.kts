@@ -15,8 +15,8 @@ android {
         // 装机验收已经跑了十几轮，还有一堆已知问题没收敛 —— 按他的要求版本号要动起来并以 beta 结尾。
         // 口径：versionCode = 第几轮装机（每次交付 +1），versionName 跟着轮次走高、
         // 始终以 -beta 结尾（这是测试项目，他明确要求不要停在 1.0.0）。
-        versionCode = 42
-        versionName = "1.32.0-beta"
+        versionCode = 43
+        versionName = "1.33.0-beta"
     }
 
     signingConfigs {

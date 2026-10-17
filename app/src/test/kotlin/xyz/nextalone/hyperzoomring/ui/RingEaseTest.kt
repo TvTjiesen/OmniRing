@@ -85,4 +85,42 @@ class RingEaseTest {
         val (tail, _) = RingEase.step(target, applied, frame, 45f)
         assertEquals(0f, tail)
     }
+
+    // ---- 单帧封顶（2026-10-17：要"里面和外面一样"，最高速度也得一样） ----
+
+    @Test
+    fun `累计出一大笔时单帧也只许走封顶`() {
+        val (move, _) = RingEase.step(
+            target = 3000f, applied = 0f, dtMs = 16f, tauMs = 45f, maxStepPx = RingEase.MAX_STEP_PX,
+        )
+        assertEquals(RingEase.MAX_STEP_PX, move, 0.001f)
+    }
+
+    @Test
+    fun `反向同样受封顶`() {
+        val (move, _) = RingEase.step(
+            target = -3000f, applied = 0f, dtMs = 16f, tauMs = 45f, maxStepPx = RingEase.MAX_STEP_PX,
+        )
+        assertEquals(-RingEase.MAX_STEP_PX, move, 0.001f)
+    }
+
+    @Test
+    fun `封顶不许吃掉总位移，多帧后仍然收敛`() {
+        var applied = 0f
+        var sum = 0f
+        repeat(300) {
+            val (move, a) = RingEase.step(1200f, applied, 16f, 45f, RingEase.MAX_STEP_PX)
+            applied = a
+            sum += move
+        }
+        assertTrue(RingEase.converged(1200f, applied))
+        assertEquals(1200f, sum, 1f)
+    }
+
+    @Test
+    fun `tau 为 0 是旧行为对照，不受封顶影响`() {
+        val (move, applied) = RingEase.step(3000f, 0f, 16f, 0f, RingEase.MAX_STEP_PX)
+        assertEquals(3000f, move, 0.001f)
+        assertEquals(3000f, applied, 0.001f)
+    }
 }
