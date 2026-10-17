@@ -1,0 +1,72 @@
+# 构建产物
+*.iml
+.gradle/
+build/
+app/build/
+.kotlin/
+.cxx/
+local.properties
+
+# 这台机器的调试残留，绝对不该进公开仓库
+*.log
+!docs/**/*.log
+capture.log
+diag.log
+raw_events.log
+app/capture.log
+app/diag.log
+analyze*.py
+measure_shift.py
+rollback.bat
+rollback_phone.sh
+mc_backup.db
+backup_apk/
+_installed.apk
+_ondevice.apk
+_*.png
+_*.bak
+*.patch
+*.bak
+hz.xml
+
+# tools/ 下这几份是 PC 侧分析与图标生成脚本，属于工程内容，要进仓库
+!/tools/*.py
+!/tools/*.sh
+__pycache__/
+
+# IDE / 系统
+.idea/
+.DS_Store
+
+# ==== 2026-10-16 发布前闸门：这些绝对不该进公开仓库 ====
+# 真机截图（历史里有过微信会话、锁屏通知），一张都不许推
+shots/
+# 设备偏好导出、LSPosed 库备份的旁支
+backups/
+# 无头 Edge 渲染海报时的用户数据目录
+brand/tmp/
+# 为绕开本机到 dl.google.com 超时抓的三个 jar（CI 上网络正常，不需要）
+localmaven/
+# 装机/验收脚本落下来的真机转储
+brand/*.log
+
+# 被 v5 取代的 v1-v4 海报渲染 + v5 的全分辨率源图（重跑脚本就能再生，不占仓库体积）
+brand/archive/
+
+# ==== 2026-10-17 发布闸门：这些是我自己的机器/设备侧工具与内部计划，不对外 ====
+.cache/
+rp.sh
+# 内部发布计划（引用了私人路径与本机流程）
+brand/发布方案.md
+# 我这版被否掉的海报实验与 AI 底图，只留在本地
+brand/poster_v5*
+brand/og_social_preview_v5.png
+brand/assets/keyvisual_v*.jpg
+brand/poster_v4*
+brand/poster_v3*
+brand/poster_v2*
+brand/poster_tall*
+brand/poster_wide*
+brand/og_social_preview.png
+# 做海报时裁的真机素材（含状态栏时间/电量），不外发
+brand/assets/*.png

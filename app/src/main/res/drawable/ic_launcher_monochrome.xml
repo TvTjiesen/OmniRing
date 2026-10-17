@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 由 tools/gen_icon.py 生成；手改会被覆盖 -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:pathData="M 75.8,54 L 81.6,54 M 75.32,58.53 L 81,59.74 M 73.92,62.87 L 79.21,65.23 M 71.64,66.81 L 76.33,70.22 M 68.59,70.2 L 72.47,74.51 M 64.9,72.88 L 67.8,77.9 M 60.74,74.73 L 62.53,80.25 M 56.28,75.68 L 56.88,81.45 M 51.72,75.68 L 51.12,81.45 M 47.26,74.73 L 45.47,80.25 M 43.1,72.88 L 40.2,77.9 M 39.41,70.2 L 35.53,74.51 M 36.36,66.81 L 31.67,70.22 M 34.08,62.87 L 28.79,65.23 M 32.68,58.53 L 27,59.74 M 32.2,54 L 26.4,54 M 32.68,49.47 L 27,48.26 M 34.08,45.13 L 28.79,42.77 M 36.36,41.19 L 31.67,37.78 M 39.41,37.8 L 35.53,33.49 M 43.1,35.12 L 40.2,30.1 M 47.26,33.27 L 45.47,27.75 M 51.72,32.32 L 51.12,26.55 M 56.28,32.32 L 56.88,26.55 M 60.74,33.27 L 62.53,27.75 M 64.9,35.12 L 67.8,30.1 M 68.59,37.8 L 72.47,33.49 M 71.64,41.19 L 76.33,37.78 M 73.92,45.13 L 79.21,42.77 M 75.32,49.47 L 81,48.26"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+    <path android:pathData="M 66.59,58.58 A 13.4,13.4 0 1,1 66.59,49.42"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round" />
+    <path android:pathData="M 51.8,54 a 2.2,2.2 0 1,1 4.4,0 a 2.2,2.2 0 1,1 -4.4,0 Z" android:fillColor="#FFFFFFFF" />
+</vector>

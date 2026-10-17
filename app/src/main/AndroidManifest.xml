@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- 配置推送通道（见 ConfigPayload / ConfigSync）：
+         system_server 读不到 App 的私有 prefs 文件，配置只能由 App 主动推。
+         signature 级 = 只有与本应用同签名的进程推得进来，别的 app 伪造不了。 -->
+    <permission
+        android:name="xyz.nextalone.hyperzoomring.permission.PUSH_CONFIG"
+        android:protectionLevel="signature" />
+    <uses-permission android:name="xyz.nextalone.hyperzoomring.permission.PUSH_CONFIG" />
+
+    <application
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar"
+        android:supportsRtl="true">
+
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Xposed Module metadata -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="Remap Xiaomi 17 Ultra zoom ring gestures to custom actions" />
+        <!-- 实测：写 100 会让这台机器上的 LSPosed **直接不加载本模块**
+             （新 system_server 里一条日志都没有、心跳也不刷新），回退到 93 才正常。
+             所以 LSPosed 那条"使用了已废弃功能"的提示不能靠这个字段消掉：
+             它的判据是模块实现了哪些接口，而 YukiHookAPI 的入口实现的是
+             IXposedHookLoadPackage / IXposedHookZygoteInit 这套旧接口。 -->
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <meta-data
+            android:name="xposedsharedprefs"
+            android:value="true" />
+
+        <!-- LSPosed default scope: system framework -->
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
+    </application>
+</manifest>
