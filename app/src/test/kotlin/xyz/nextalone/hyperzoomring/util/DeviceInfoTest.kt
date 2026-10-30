@@ -50,6 +50,26 @@ class DeviceInfoTest {
     }
 
     @Test
+    fun `HyperOS 3 带 OS 前缀的增量号解析成 3_0_34_0`() {
+        // 这一条是给"全面适配 HyperOS 3"补的证据：OS3 的号形如 3.0.34.0.WPCCNXM /
+        // HyperOS 3.0.15.0.WPACNXM（新闻里出现过两种写法），适配卡要能读出 3.x 而不是空。
+        assertEquals(
+            "HyperOS 3.0.34.0",
+            DeviceInfo.hyperOsFrom(incremental = "OS3.0.34.0.WPCCNXM", name = "OS3.0", code = "3", fallback = "V806"),
+        )
+    }
+
+    @Test
+    fun `HyperOS 3 增量号没有 OS 前缀时退回 name 也必须读出 3 系`() {
+        // 全球版见过 "3.0.301.3" 这种无前缀写法：此时正则命中不了，必须落到 ro.mi.os.version.name，
+        // 而不是把增量号本身当成 HyperOS 版本。
+        assertEquals(
+            "HyperOS 3.0",
+            DeviceInfo.hyperOsFrom(incremental = "3.0.301.3.WPAMIXM", name = "OS3.0", code = "3", fallback = "XPAMIXM"),
+        )
+    }
+
+    @Test
     fun `MIUI 时代的增量号不该被当成 HyperOS 版本`() {
         // 老 ROM 的 incremental 形如 "V816.0.6.0.VNCCNXM"，没有 OS 前缀 → 不许解析出 "OS ..."
         assertEquals(

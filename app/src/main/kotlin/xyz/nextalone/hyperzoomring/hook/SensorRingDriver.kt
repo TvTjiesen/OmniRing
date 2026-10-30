@@ -11,6 +11,8 @@ import xyz.nextalone.hyperzoomring.action.actions.TouchScrollInjector
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.ring.CrownModel
 import xyz.nextalone.hyperzoomring.ring.ActionRouter
+import xyz.nextalone.hyperzoomring.ring.ForegroundGate
+import xyz.nextalone.hyperzoomring.ring.RingSourceArbiter
 import xyz.nextalone.hyperzoomring.ring.SeekGate
 import xyz.nextalone.hyperzoomring.ring.ScrollModeModel
 import xyz.nextalone.hyperzoomring.util.Heartbeat
@@ -68,8 +70,24 @@ object SensorRingDriver {
     @Volatile
     var enabled = true
 
+    /** 调试日志开关（`settings put global hzr_debug 1`）。两条入口都要读，所以不能是 private */
+    @Volatile internal var debugLog = false
+
     @Volatile private var paramAt = 0L
-    @Volatile private var debugLog = false
+
+    /**
+     * 传感器路上一次"收到有效样本"的时刻（uptimeMillis），0 = 从没来过。
+     *
+     * 输入侧的互斥租约就看这一个数（见 [RingSourceArbiter]）：它在我们这台 OS4 上会一直更新，
+     * 于是 OS3 那种"两条路同时来事"的情况下，输入侧自动降级成只消费。
+     */
+    @Volatile var lastAcceptedAtMs = 0L
+
+    /** 互斥租约（毫秒），0 = 关掉仲裁。热调：`settings put global hzr_ring_lease_ms 0` */
+    @Volatile var leaseMs = RingSourceArbiter.DEFAULT_LEASE_MS
+
+    /** 换应用后的观察窗（毫秒），0 = 关掉这条闸门。热调：`settings put global hzr_fg_stable_ms 0` */
+    @Volatile var fgStableMs = ForegroundGate.DEFAULT_STABLE_MS
 
     /** 进度环：UI 总开关（可被 hzr_media_seek 强制覆盖）+ 竖屏白名单，缓存 0.4 秒 */
     @Volatile private var seekSwitch = false
@@ -92,6 +110,10 @@ object SensorRingDriver {
             )
         }
         if (!accepted) return
+
+        // 盖"传感器这条路在干活"的戳（必须是 uptimeMillis，和读它那边同一个时钟）。
+        // HyperOS 3 上输入侧也会收到同一次转动，它靠这个戳把自己降级成"只消费不执行"。
+        lastAcceptedAtMs = android.os.SystemClock.uptimeMillis()
 
         // 里程表要在分发前记：定方向语义需要"累计转幅"，而累计量归谁管不能靠注入端猜
         scrollMode.onAccepted(model.lastDeltaUnits)
@@ -136,8 +158,9 @@ object SensorRingDriver {
         }
 
         val foregroundPkg = InputInterceptorHook.getForegroundPackage(context)
+        val isCamera = InputInterceptorHook.isCameraPackage(foregroundPkg)
         // 相机前台且未开启覆盖 -> 让系统自己处理变焦
-        if (InputInterceptorHook.isCameraPackage(foregroundPkg) && !config.overrideCamera) return
+        if (isCamera && !config.overrideCamera) return
 
         val gesture = currentGesture()
 
@@ -169,6 +192,28 @@ object SensorRingDriver {
         if (action.injectsTouch && InputInterceptorHook.isOurApp(foregroundPkg)) {
             dispatched(context, gesture, intensity, actionId, ok = true)
             return
+        }
+        // 「相机界面有概率触发滑动」的正解就在这一段（这条才是本机真正在干活的路）。
+        //
+        // 转场那段时间 `getRunningTasks` 给的还是上一个应用、甚至直接读空（这台 ROM 的抓包里
+        // 见过 `mCurrentFocus=null` 而焦点仍在原应用），于是相机放行闸门判 false，
+        // 一根手指就注到刚打开的相机上 —— 他看到的"有概率"就是这么来的。
+        // 规则：**刚换应用的一个窗口内，要往屏幕注手指的动作先不执行**（音量/亮度这类不注手指的照旧）。
+        // 判据是纯函数 ForegroundGate，PC 上有单测；关它：`adb shell settings put global hzr_fg_stable_ms 0`
+        if (action.injectsTouch) {
+            val nowUp = android.os.SystemClock.uptimeMillis()
+            val sinceSwitch = nowUp - InputInterceptorHook.fgChangedAtMs
+            if (ForegroundGate.deferTouchInject(nowUp, InputInterceptorHook.fgChangedAtMs, fgStableMs)) {
+                if (debugLog) {
+                    Log.i(TAG, "转场窗口内跳过 ${action.id} fg=$foregroundPkg cam=$isCamera 切换后 ${sinceSwitch}ms")
+                }
+                dispatched(context, gesture, intensity, actionId, ok = false)
+                return
+            }
+            if (debugLog) {
+                // 真执行了也留一条：万一还是误触发，一眼分得清是"包名不在白名单"还是"读到空"
+                Log.i(TAG, "执行注入 ${action.id} fg=$foregroundPkg cam=$isCamera 切换后 ${sinceSwitch}ms")
+            }
         }
 
         // 进度环：判定规则抽在 SeekGate（纯函数，PC 上有单测覆盖竖屏/横屏两种场景）。
@@ -330,6 +375,9 @@ object SensorRingDriver {
             model.reverseCredit = Settings.Global.getInt(r, "hzr_backlash_credit", 1) == 1
             model.unlockVel = Settings.Global.getFloat(r, "hzr_unlock_vel", model.unlockVel)
             debugLog = Settings.Global.getInt(r, "hzr_debug", 0) == 1
+            // 双入口互斥租约、换应用观察窗：都是给真机远程 A/B 用的（见 RingSourceArbiter / ForegroundGate）
+            leaseMs = Settings.Global.getLong(r, "hzr_ring_lease_ms", leaseMs)
+            fgStableMs = Settings.Global.getLong(r, "hzr_fg_stable_ms", fgStableMs)
             // hzr_media_seek: 未设置(-1)=听设置界面的开关，0=强制关，1=强制开
             val forced = Settings.Global.getInt(r, "hzr_media_seek", -1)
             seekSwitch = when (forced) {

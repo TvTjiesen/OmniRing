@@ -240,6 +240,7 @@
     <string name="compat_check_loaded">Модуль загружен</string>
     <string name="compat_check_ring">Данные кольца</string>
     <string name="compat_path_sensor">Канал сенсора (эта ROM отключает фильтр ввода)</string>
+    <string name="compat_path_both">Оба канала активны (входной фильтр тоже получает события; дублирование подавлено)</string>
     <string name="compat_loaded_ok">Загружен и работает</string>
     <string name="compat_loaded_pending">Нужна перезапуск области</string>
     <string name="compat_loaded_no">Не загружен</string>

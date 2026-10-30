@@ -240,6 +240,7 @@
     <string name="compat_check_loaded">Module loaded</string>
     <string name="compat_check_ring">Ring data</string>
     <string name="compat_path_sensor">Sensor channel (this ROM disables the input filter)</string>
+    <string name="compat_path_both">Both channels active (input events are arriving too; duplicate execution is gated)</string>
     <string name="compat_loaded_ok">Loaded and running</string>
     <string name="compat_loaded_pending">Scope restart needed</string>
     <string name="compat_loaded_no">Not loaded</string>

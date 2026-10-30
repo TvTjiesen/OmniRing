@@ -32,8 +32,14 @@ object Compatibility {
         val total: Int,
     )
 
-    /** 实测过的最低 Android SDK：36（Android 16）；当前实测机是 Android 17 / SDK 37 */
-    const val TESTED_MIN_SDK = 36
+    /**
+     * **真正实测过**的最低 Android SDK = 37（Android 17 / HyperOS 4，唯一一台实测机 nezha）。
+     *
+     * 这里原来写的是 36，那是我自己填上去的、没有任何证据支撑的"实测过"——
+     * 适配卡会因此把 HyperOS 3（Android 16）报成 PASS，等于对外宣称支持却没跑过。
+     * OS3 的机器真验过之后再抬回 36，并且要拿正面证据（心跳 + 逐动作回执）来换。
+     */
+    const val TESTED_MIN_SDK = 37
 
     fun grade(
         supportedDevice: Boolean,
@@ -42,6 +48,8 @@ object Compatibility {
         sdk: Int,
         verdict: StatusJudge.Verdict?,
         ringSamples: Long,
+        /** 心跳报上来的实际路径："sensor" = 只有传感器路在干活（本机 OS4）；"input+sensor" = 输入侧也收到了事件（OS3 那种） */
+        activePath: String = "sensor",
     ): Report {
         val items = mutableListOf<Item>()
 
@@ -60,8 +68,9 @@ object Compatibility {
         items += Item(Check.OS, osState, osText)
 
         // 技术路径：这台 ROM 把输入事件过滤关了，所以我们读的是变焦环自己的光学传感器流。
+        // 值来自心跳（不写死）：OS3 上输入侧其实也在收事件，写死就等于把这一行变成废话。
         // 这不是"通不通"，是"走的哪条路"，所以永远标 INFO。
-        items += Item(Check.PATH, State.INFO, "sensor")
+        items += Item(Check.PATH, State.INFO, activePath)
 
         val loadedState = when (verdict) {
             null -> State.WARN

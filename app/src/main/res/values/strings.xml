@@ -241,6 +241,7 @@
     <string name="compat_check_loaded">模块加载</string>
     <string name="compat_check_ring">环数据</string>
     <string name="compat_path_sensor">传感器通道（本 ROM 关掉了输入过滤）</string>
+    <string name="compat_path_both">两条通道并存（输入侧也收到了事件，重复执行已被挡住）</string>
     <string name="compat_loaded_ok">已加载并在跑</string>
     <string name="compat_loaded_pending">待重启作用域</string>
     <string name="compat_loaded_no">未被加载</string>

@@ -12,9 +12,12 @@ import com.highcapable.yukihookapi.hook.type.java.IntType
 import xyz.nextalone.hyperzoomring.action.ActionRegistry
 import xyz.nextalone.hyperzoomring.action.actions.LaunchAppAction
 import xyz.nextalone.hyperzoomring.config.ConfigManager
+import xyz.nextalone.hyperzoomring.ring.ForegroundGate
+import xyz.nextalone.hyperzoomring.ring.RingSourceArbiter
 import xyz.nextalone.hyperzoomring.ring.ZoomRingConstants
 import xyz.nextalone.hyperzoomring.ring.ZoomRingDetector
 import xyz.nextalone.hyperzoomring.ring.ZoomRingEvent
+import xyz.nextalone.hyperzoomring.util.Heartbeat
 
 @Suppress("DEPRECATION")
 object InputInterceptorHook {
@@ -237,7 +240,31 @@ object InputInterceptorHook {
         val foregroundPkg = getForegroundPackage(context)
 
         // Camera override: overrideCamera=false means camera always gets passthrough
-        if (isCameraPackage(foregroundPkg) && !config.overrideCamera) return false
+        val cameraPassthrough = isCameraPackage(foregroundPkg) && !config.overrideCamera
+
+        // 两条入口的互斥。HyperOS 3 上输入侧和传感器侧会**同时**收到一次转动，
+        // 不加这道闸就是双倍执行（滚动双倍速、音量跳两格）。判据与理由见 [RingSourceArbiter]。
+        //
+        // 对我们这台 OS4：输入侧收不到环的 MotionEvent，这段代码根本不会被走到 —— 惰性的。
+        when (
+            RingSourceArbiter.inputPolicy(
+                cameraPassthrough = cameraPassthrough,
+                nowMs = android.os.SystemClock.uptimeMillis(),
+                lastSensorAtMs = SensorRingDriver.lastAcceptedAtMs,
+                leaseMs = SensorRingDriver.leaseMs,
+            )
+        ) {
+            RingSourceArbiter.InputPathPolicy.PASSTHROUGH -> return false
+
+            RingSourceArbiter.InputPathPolicy.CONSUME_ONLY -> {
+                // 吞掉事件（不让系统再照 AXIS_SCROLL 滚一遍），但不执行、不再发广播
+                Heartbeat.onInputPath(executed = false)
+                if (debugSkipLog()) Log.i(TAG, "输入侧只消费：传感器路在干活 fg=$foregroundPkg")
+                return canConsume
+            }
+
+            RingSourceArbiter.InputPathPolicy.EXECUTE -> Unit
+        }
 
         val direction = getDirection()
         val scrollValue = event.getAxisValue(MotionEvent.AXIS_SCROLL).toInt()
@@ -289,8 +316,31 @@ object InputInterceptorHook {
             }
             return canConsume
         }
+        // 刚换应用的那一拍先别注手指：转场时 topActivity 可能还没换成相机、甚至读空，
+        // 这就是"相机界面有概率触发滑动"的来源（判据见 ForegroundGate.deferTouchInject）。
+        if (action.injectsTouch && deferTouchInject(android.os.SystemClock.uptimeMillis())) {
+            if (debugInjectLog()) {
+                Log.i(
+                    TAG,
+                    "FG 转场窗口内跳过 ${action.id} fg=$foregroundPkg cam=$cameraPassthrough " +
+                        "切换后 ${android.os.SystemClock.uptimeMillis() - fgChangedAtMs}ms",
+                )
+            }
+            return false
+        }
+        if (action.injectsTouch && debugInjectLog()) {
+            // 这条是给"相机里还是有概率触发滑动"留的证据：真触发了就把当时的前台包名打出来，
+            // 一眼能分清是"包名不在白名单"还是"读到空/读慢一拍"。开：settings put global hzr_debug_log 1
+            Log.i(
+                TAG,
+                "FG 执行注入 ${action.id} fg=$foregroundPkg cam=$cameraPassthrough " +
+                    "切换后 ${android.os.SystemClock.uptimeMillis() - fgChangedAtMs}ms",
+            )
+        }
         try {
             action.execute(ctx, intensity)
+            // 输入侧真的干活了（OS3 上只有在传感器路断供时才轮得到它）—— 心跳里这个计数会涨
+            Heartbeat.onInputPath(executed = true)
         } catch (e: Exception) {
             Log.e(TAG, "Action execution failed: ${action.id}", e)
         }
@@ -318,12 +368,32 @@ object InputInterceptorHook {
     @Volatile
     private var fgAt = 0L
 
+    /** 这次读到的值能复用多久：读成功 200ms，读失败只 40ms（原因见 [ForegroundGate.cacheTtlMs]） */
+    @Volatile
+    private var fgValidFor = FG_TTL_MS
+
+    /**
+     * 上一次"前台真的换了应用"的时刻（uptimeMillis），0 = 还没观察到过。
+     *
+     * 这是相机那条误触发的主要判据：转场过程中 `getRunningTasks` 会给到上一个应用、
+     * 甚至直接读空（历史抓包里见过 `mCurrentFocus=null` 但焦点还在原应用那种行），
+     * 于是 `isCameraPackage()` 判 false、照样注手指。读空**不算**换应用，别把窗口挂住。
+     */
+    @Volatile
+    var fgChangedAtMs = 0L
+        private set
+
+    /** 换应用观察窗内（默认 600ms）要不要把"注手指"类动作先拦一拍 */
+    internal fun deferTouchInject(nowMs: Long): Boolean =
+        ForegroundGate.deferTouchInject(nowMs, fgChangedAtMs, SensorRingDriver.fgStableMs)
+
     internal fun getForegroundPackage(context: Context?): String? {
         val ctx = context ?: return null
         val now = android.os.SystemClock.uptimeMillis()
-        if (now - fgAt < FG_TTL_MS) return fgPkg
+        if (now - fgAt < fgValidFor) return fgPkg
         // 先占时间戳再查：并发样本不会一起挤去查同一份
         fgAt = now
+        val prev = fgPkg
         val pkg = try {
             val am = ctx.getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
             am?.getRunningTasks(1)?.firstOrNull()?.topActivity?.packageName
@@ -332,6 +402,8 @@ object InputInterceptorHook {
             null
         }
         fgPkg = pkg
+        fgValidFor = ForegroundGate.cacheTtlMs(pkg, FG_TTL_MS)
+        fgChangedAtMs = ForegroundGate.nextChangedAt(prev, pkg, now, fgChangedAtMs)
         return pkg
     }
 
@@ -340,6 +412,22 @@ object InputInterceptorHook {
         val now = System.currentTimeMillis()
         if (now - skipLogAt < 2000L) return false
         skipLogAt = now
+        return true
+    }
+
+    /**
+     * 前台判定日志专用的节流。
+     *
+     * 为什么不复用 [debugSkipLog]：那个是全局共享的一个时间戳，两条日志挨得近时后一条
+     * 永远被吞 —— 而"跳过"和"执行"恰恰是挨在一起的。要抓相机那次误触发，必须保证
+     * 真执行的那条打得出来。开：`adb shell settings put global hzr_debug_log 1`
+     */
+    private var injectLogAt = 0L
+    private fun debugInjectLog(): Boolean {
+        if (!SensorRingDriver.debugLog) return false
+        val now = System.currentTimeMillis()
+        if (now - injectLogAt < 1_000L) return false
+        injectLogAt = now
         return true
     }
 

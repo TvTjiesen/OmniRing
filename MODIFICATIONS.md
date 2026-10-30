@@ -172,3 +172,28 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 | 宣传图（后被他自己做的版本取代） | `brand/poster_final.png|jpg` | 我那几版（含 AI 底图与渲染脚本，都在本地不进仓库）全部作废，对外只用他这张（横放机身 + 赛璐璐手绘手 + 镜组中心换成自家 C 弧 logo），文字全部我们自己排；出 16:9 主图 / 1:1 酷安首图 / 2:1 GitHub 社交卡 |
 
 版本号：`versionCode 38` / `versionName 1.28.0-beta` / `DebugProbe.BUILD_TAG = cfg32`。
+
+---
+
+## 第十批（2026-10-30）· 全面适配 HyperOS 3 + 相机误触发 + 远程测试的证据面
+
+业主手上只有一台 OS4 的 17 Ultra，OS3 要交给酷友测。所以这一轮的规矩是：
+**能在 PC 上证死的全证死，证不死的写清代价和兜底**，判据全在 `docs/HYPEROS3-SELFCHECK.md`，
+给测试者的回执在 `docs/HYPEROS3-TESTER.md`。
+
+| 变更 | 文件 | 为什么（不是"顺手改"，都有根因） |
+| --- | --- | --- |
+| 双入口租约式互斥 | `ring/RingSourceArbiter.kt`（新）+ 两条入口各接一处 | OS3 上输入侧（AOSP `filterInputEvent`）和传感器侧会各自执行一遍动作。选"传感器路做主、输入侧只吞事件"，因为累计量/广播契约/手感全是在这条路上实测调校过的，而 OS3 的 `AXIS_SCROLL` 语义我无法离线判定 —— 不敢让它做主。租约而不是硬关：假设错了最坏是 700ms 空窗，硬关错了是 OS3 整套失灵 |
+| 时钟倒挂不许锁死 | 同上 + 单测 | 戳比现在还新时 `age<0` 会永久让路 = 传感器路被自己关死；这台机这几天动过（工程整盘从 D: 迁到 E:），不能赌时钟单调 |
+| 相机误触发的两条闸门 | `ring/ForegroundGate.kt`（新）、`SensorRingDriver.deliver`、`InputInterceptorHook` | ① 老代码"先占时间戳再查"，查询抛异常时 `null` 被当有效值复用 200ms —— 恰好把最容易读空的转场窗口放大；② 这台 ROM 的抓包里真的出现过 `mCurrentFocus=null` 而焦点仍在原应用，所以刚换应用的 600ms 窗口内不执行 `injectsTouch` 类动作 |
+| 闸门放在共用段 | 两条入口都接了同一个 `ForegroundGate` | 上一轮"App 内不注手指"只加在硬件路径、漏了传感器路径，结果误触复活。这次两条路共用同一份判据 |
+| 心跳加第 8 段（输入侧执行/只消费） | `util/Heartbeat.kt` | 没有 OS3 机器，判据必须能从别人手机里带回来：`0/5` = 输入侧活着且被挡住（正常），`3/0` = 真在双倍执行（我最怕的那一行）。7 段老载荷照旧解析，有单测钉住 |
+| 定向日志两条 | 两条入口 | `FG 执行注入 …` / `FG 转场窗口内跳过 …`，带 `fg`/`cam`/`切换后 Nms`。一次复现就能分清"包名不在白名单"还是"读到空"。故意不复用已有的 2 秒节流 —— 两条日志挨太近会互相吞，那是假阴性 |
+| 适配口径改诚实 | `util/Compatibility.kt` | `TESTED_MIN_SDK` 原来写 36，等于宣称跑过 Android 16，而唯一实测机是 OS4/SDK 37。改成 37，OS3 显示 WARN + 部分适配 |
+| 技术路径那行不再写死 | `Compatibility`、`AdaptationCard`、4 份 strings | 值改从心跳来；OS3 上输入侧也在收事件，这一行正是远程测试最想看见的一句话 |
+| OS3 版本串钉住 | `DeviceInfoTest` 补 2 条 | 真实世界有两种写法（`OS3.0.34.0.WPCCNXM` / 无前缀 `3.0.301.3.WPAMIXM`），后者必须退回 `ro.mi.os.version.name` 而不是把增量号当版本号 |
+
+热调键（都不用重装就能 A/B）：`hzr_ring_lease_ms`（700，0=关仲裁）、`hzr_fg_stable_ms`（600，0=关转场闸门）、`hzr_debug`（1=开定向日志）。
+
+版本号：`versionCode 45` / `versionName 1.35.0-beta` / `DebugProbe.BUILD_TAG = cfg39`。
+测试：33 类 / 202 条断言 / 0 失败（基线 175，本轮 +27）。

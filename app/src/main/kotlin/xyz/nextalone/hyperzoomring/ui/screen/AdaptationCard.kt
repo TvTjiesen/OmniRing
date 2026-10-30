@@ -110,7 +110,14 @@ fun AdaptationCard(modifier: Modifier = Modifier) {
             InfoRow(stringResource(R.string.compat_check_os), DeviceInfo.osLine)
             InfoRow(
                 stringResource(R.string.compat_check_path),
-                stringResource(R.string.compat_path_sensor),
+                // 通道由心跳决定，不再写死：HyperOS 3 上输入侧确实也收得到事件，
+                // 这一行就是远程测试最想看的那一句 —— "两条路都在收，但重复执行被挡住了"。
+                stringResource(
+                    if ((rep?.items?.firstOrNull { it.check == Compatibility.Check.PATH }?.value ?: "sensor") == "sensor")
+                        R.string.compat_path_sensor
+                    else
+                        R.string.compat_path_both,
+                ),
             )
 
             // 后面两条带状态点，因为它们是会变的"当前状况"
@@ -152,6 +159,8 @@ private fun gradeNow(context: Context): Compatibility.Report {
         sdk = DeviceInfo.sdkInt,
         verdict = verdict.verdict,
         ringSamples = samples,
+        // 从心跳读实际路径，不写死：HyperOS 3 上输入侧也在收事件，这一行是给远程测试看的
+        activePath = verdict.snapshot?.activePath ?: "sensor",
     )
 }
 

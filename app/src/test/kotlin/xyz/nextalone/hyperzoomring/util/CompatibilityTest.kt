@@ -15,6 +15,7 @@ class CompatibilityTest {
         sdk: Int = 37,
         verdict: StatusJudge.Verdict? = StatusJudge.Verdict.OK,
         samples: Long = 120L,
+        activePath: String = "sensor",
     ) = Compatibility.grade(
         supportedDevice = supported,
         modelText = "XIAOMI Xiaomi 17 Ultra by Leica · nezha",
@@ -22,6 +23,7 @@ class CompatibilityTest {
         sdk = sdk,
         verdict = verdict,
         ringSamples = samples,
+        activePath = activePath,
     )
 
     @Test
@@ -66,6 +68,30 @@ class CompatibilityTest {
     fun `系统低于实测范围 = 部分适配`() {
         val r = grade(sdk = 34)
         assertEquals(Compatibility.Level.PARTIAL, r.level)
+    }
+
+    @Test
+    fun `Android 16（HyperOS 3）没实测过 不许报成通过`() {
+        // 这一条是给 HyperOS 3 那轮适配补的：上一版把 TESTED_MIN_SDK 写成 36，等于对外宣称
+        // "Android 16 我们跑过"，而手上唯一一台实测机是 OS4 / Android 17（SDK 37）。
+        // 虚报的代价很具体 —— 酷安上会有人装了之后回来说"你写着支持结果不行"。
+        // 等 OS3 的机器真验过，再把这条下限抬回 36，并且那时要换成正面证据。
+        val r = grade(sdk = 36)
+        assertEquals(Compatibility.Level.PARTIAL, r.level)
+        assertEquals(Compatibility.State.WARN, r.items.first { it.check == Compatibility.Check.OS }.state)
+    }
+
+    @Test
+    fun `技术路径那行说真话`() {
+        // 这一行原来是写死的 "sensor"。HyperOS 3 上输入侧其实也在收事件，
+        // 写死就等于把"走的哪条路"变成一句废话 —— 而这恰恰是远程测试最想知道的一行。
+        assertEquals("sensor", grade().items.first { it.check == Compatibility.Check.PATH }.value)
+        assertEquals(
+            "input+sensor",
+            grade(sdk = 36, activePath = "input+sensor").items.first { it.check == Compatibility.Check.PATH }.value,
+        )
+        // 路径永远只是说明，不进分母
+        assertEquals(3, grade(activePath = "input+sensor").total)
     }
 
     @Test

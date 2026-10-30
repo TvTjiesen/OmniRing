@@ -13,9 +13,9 @@
 #   bash tools/deploy_verify.sh --no-reboot  # 只装机和验收，不重启（没改模块代码时用）
 set -uo pipefail
 
-ADB=${ADB:-/d/dev/android-sdk/platform-tools/adb.exe}
+ADB=${ADB:-/e/dev/android-sdk/platform-tools/adb.exe}
 SER=${SER:?要带 -s 的设备串号，例如 SER=你的串号}
-APK=${APK:-D:/dev/hzr/app/build/outputs/apk/debug/app-debug.apk}
+APK=${APK:-E:/dev/hzr/app/build/outputs/apk/debug/app-debug.apk}
 PKG=xyz.nextalone.hyperzoomring
 PREFS=/data/data/$PKG/shared_prefs/hyperzoomring_config.xml
 TMP_DEV=/data/local/tmp/hzr_prefs_restore.xml
@@ -24,8 +24,8 @@ NO_REBOOT=0
 
 # 临时文件必须放在 Windows 看得见的地方：adb.exe 是 Windows 程序，
 # 读不到 Git Bash 的 /tmp（那实际映射到 AppData\Local\Temp），push 会静默失败
-TMP_LOCAL=D:/dev/hzr/build/tmp_prefs_restore.xml
-mkdir -p D:/dev/hzr/build 2>/dev/null
+TMP_LOCAL=E:/dev/hzr/build/tmp_prefs_restore.xml
+mkdir -p E:/dev/hzr/build 2>/dev/null
 trap 'rm -f "$TMP_LOCAL"' EXIT
 
 # 设备侧命令一律走 run()：里面**不要再放单引号** —— adb → su -c → sh 要穿三层引号，

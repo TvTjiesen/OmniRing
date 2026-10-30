@@ -74,6 +74,23 @@ object Heartbeat {
     }
 
     /**
+     * 输入侧那条路（AOSP 的 `filterInputEvent`）有没有真的收到过环事件。
+     *
+     * 这是**给 HyperOS 3 远程测试用的判据**，不是给我们自己看的：
+     * 我们没有 OS3 的机器，而这条路上"收得到事件"恰恰是 OS3 与 OS4 的分水岭 ——
+     * OS4 上 `InputFilterEnabled=false`，它一个事件都收不到；OS3 上收得到，于是会
+     * 和传感器路撞车。撞车由 [RingSourceArbiter] 挡，挡住之后这条计数会涨在
+     * "只消费"那一档 —— 酷友只要把这一行带回来，我们就能确定：
+     * 输入侧活着、仲裁器在挡、动作只执行了一遍。
+     */
+    private val inputExec = AtomicInteger(0)
+    private val inputConsumeOnly = AtomicInteger(0)
+
+    fun onInputPath(executed: Boolean) {
+        if (executed) inputExec.incrementAndGet() else inputConsumeOnly.incrementAndGet()
+    }
+
+    /**
      * 由 2 秒一次的探针节拍调用，把内存计数落到 Settings.Global。
      *
      * 签名在这里惰性补齐：原来那套做法是在 HookEntry 里反射 ActivityThread.systemMain()
@@ -101,6 +118,8 @@ object Heartbeat {
             lastAction,
             injectOk.get().toString(),
             injectFail.get().toString(),
+            // 第 8 个字段：输入侧"执行过 / 只消费过"的次数。字段只增不改序，老 App 读前 7 个照旧。
+            "${inputExec.get()}/${inputConsumeOnly.get()}",
         ).joinToString(SEPARATOR)
         runCatching {
             Settings.Global.putString(context.contentResolver, KEY, payload)
@@ -116,13 +135,23 @@ object Heartbeat {
         val lastAction: String,
         val ok: Int,
         val fail: Int,
-    )
+        /** 输入侧（AOSP `filterInputEvent`）执行过动作的次数。0 = 这条 ROM 收不到环的输入事件 */
+        val inputExec: Int = 0,
+        /** 输入侧"只吞事件不执行"的次数 —— 在 HyperOS 3 上这个数字应该涨，涨了才证明没双倍执行 */
+        val inputConsumeOnly: Int = 0,
+    ) {
+        /** 哪条路在干活：输入侧完全没来过 = 本机（OS4）走传感器；来过 = OS3 那种两条路并存 */
+        val activePath: String
+            get() = if (inputExec + inputConsumeOnly == 0) "sensor" else "input+sensor"
+    }
 
     fun parse(raw: String?): Snapshot? {
         if (raw.isNullOrBlank()) return null
         val f = raw.split(SEPARATOR)
         if (f.size < 7) return null
         return runCatching {
+            // 第 8 个字段是后加的：老 payload（7 段）必须还能解析，别因为长度不够就整条判废
+            val path = f.getOrNull(7).orEmpty().split("/")
             Snapshot(
                 signature = f[0],
                 samples = f[1].toLong(),
@@ -131,6 +160,8 @@ object Heartbeat {
                 lastAction = f[4],
                 ok = f[5].toInt(),
                 fail = f[6].toInt(),
+                inputExec = path.getOrNull(0)?.toIntOrNull() ?: 0,
+                inputConsumeOnly = path.getOrNull(1)?.toIntOrNull() ?: 0,
             )
         }.getOrNull()
     }
