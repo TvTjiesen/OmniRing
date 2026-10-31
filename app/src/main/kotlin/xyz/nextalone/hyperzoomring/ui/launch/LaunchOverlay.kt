@@ -104,7 +104,9 @@ fun LaunchOverlay(title: String, subtitle: String, onDone: () -> Unit) {
         contentAlignment = Alignment.Center,
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Canvas(modifier = Modifier.size(280.dp)) {
+            // 画布 340dp / 表冠 172dp：280+136 那版条带图量出来"主体只占屏幕一小块"，
+            // 读起来像一颗图标在闪，不像一段进入动画（原厂那支 Lottie 是 1260×1260 满幅）
+            Canvas(modifier = Modifier.size(340.dp)) {
                 val c = Offset(size.width / 2f, size.height / 2f)
                 val rOuter = size.minDimension / 2f
                 // 背后一团柔光：让表冠"坐"在画面里，而不是贴着一张图
@@ -136,17 +138,18 @@ fun LaunchOverlay(title: String, subtitle: String, onDone: () -> Unit) {
                         alpha = alpha,
                     )
                 }
-                // 拨过的角度留在画面上：这段弧就是"这一下转了多少"的直白表达
+                // 拨过的角度留在画面上：这段弧画在**刻度外侧**。之前画在 0.78×半径处，
+                // 正好压在齿带上，条带图里看出去像一道来路的蓝线（不是"轨迹"）
                 if (rot > 0.5f) {
-                    val rr = rOuter * 0.78f
+                    val rr = rOuter * 1.02f
                     drawArc(
-                        color = accent.copy(alpha = 0.65f),
+                        color = accent.copy(alpha = 0.5f),
                         startAngle = -90f,
                         sweepAngle = rot,
                         useCenter = false,
                         topLeft = c - Offset(rr, rr),
                         size = Size(rr * 2f, rr * 2f),
-                        style = Stroke(width = 2.4f.dp.toPx(), cap = StrokeCap.Round),
+                        style = Stroke(width = 2.0f.dp.toPx(), cap = StrokeCap.Round),
                     )
                 }
             }
@@ -156,7 +159,7 @@ fun LaunchOverlay(title: String, subtitle: String, onDone: () -> Unit) {
                     angle = rot,
                     // 进场淡入只走这里一份：每支颜色各带 alpha，别再叠一层 graphicsLayer alpha
                     // （叠了会得到"比设计值暗一半"的观感，而且两处算同一个量迟早不同步）
-                    modifier = Modifier.size(136.dp),
+                    modifier = Modifier.size(172.dp),
                     dial = CrownArt.DIAL.copy(alpha = a),
                     rim = CrownArt.RIM.copy(alpha = a),
                     inner = CrownArt.INNER.copy(alpha = a),

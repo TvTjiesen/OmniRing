@@ -42,13 +42,14 @@ object LaunchAnim {
     const val SWEEP_END_MS = 620L
     const val CROWN_SWEEP_DEG = 34f
 
-    /** 中心 App 名浮出 */
-    const val LABEL_START_MS = 480L
-    const val LABEL_END_MS = 760L
+    /** 中心名字浮出。原来定在 480→760，条带图量出来"名字刚看清就开始整层淡出"，
+     *  往前挪并把停留拉开到 200ms（淡出从 840 才开始） */
+    const val LABEL_START_MS = 420L
+    const val LABEL_END_MS = 640L
 
     /** 整层淡出，把画面交给已经画好的首页 */
-    const val FADE_OUT_START_MS = 760L
-    const val FADE_OUT_DUR_MS = 140L
+    const val FADE_OUT_START_MS = 840L
+    const val FADE_OUT_DUR_MS = 150L
 
     /** 落位前的起始缩放。0.84 是"能感觉到长大但绝不过冲"的上限 */
     const val CROWN_SCALE_FROM = 0.84f
