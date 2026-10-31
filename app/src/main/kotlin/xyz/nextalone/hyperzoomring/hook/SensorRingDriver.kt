@@ -189,6 +189,15 @@ object SensorRingDriver {
         // 它和 App 侧 scrollBy 抢同一根 pointerId=0（实测压着时真滑动只推得动 57px）→ "转三下才滑一下"。
         //
         // 环事件广播照发（dispatched 里就带），应用内改由 MainActivity 自己滚当前页。
+        // 相机里一票否决合成手指（**与 override_camera 无关**）。
+        // 真机证据：`执行注入 scroll fg=com.android.camera cam=true 切换后 8015ms` —— 包名、前台、
+        // 转场窗口全都判对了，它还是执行了，只因旧放行是"相机且未开覆盖"。判据见 ForegroundGate。
+        if (!ForegroundGate.allowsInjectedAction(isCamera, action.injectsTouch)) {
+            if (debugLog) Log.i(TAG, "相机内否决注手指动作 ${action.id}（override_camera 不再能放行它）")
+            dispatched(context, gesture, intensity, actionId, ok = false)
+            return
+        }
+
         if (action.injectsTouch && InputInterceptorHook.isOurApp(foregroundPkg)) {
             dispatched(context, gesture, intensity, actionId, ok = true)
             return

@@ -98,7 +98,7 @@
     <string name="home_dispatch">Способ распределения</string>
     <string name="home_camera">Камера</string>
     <string name="home_override_camera">Перехватывать камеру</string>
-    <string name="home_override_on">В камере кольцо выполняет свои действия</string>
+    <string name="home_override_on">В камере перехватываются только действия без касаний; прокрутка там не выполняется</string>
     <string name="home_override_off">В камере кольцо работает как зум</string>
     <string name="home_seek">Кольцо позиции видео</string>
     <string name="home_seek_switch">Во время просмотра прокрутка = перемотка</string>

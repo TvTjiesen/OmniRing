@@ -39,4 +39,20 @@ object ForegroundGate {
     /** 这次读到的值可以复用多久 */
     fun cacheTtlMs(pkg: String?, okTtlMs: Long, failTtlMs: Long = FAIL_TTL_MS): Long =
         if (pkg.isNullOrEmpty()) failTtlMs else okTtlMs
+
+    /**
+     * 这个动作能不能执行。**相机在前台时，一切要往屏幕合成手指的动作都一票否决**，
+     * 与 `override_camera` 无关。
+     *
+     * 为什么必须是硬的（2026-10-31 真机定案）：原来那条放行是"相机在前台**且没开覆盖**才放行"，
+     * 于是开着覆盖时滚动照样进相机；日志证据是
+     * `执行注入 scroll fg=com.android.camera cam=true 切换后 8015ms` —— 包名认对、前台读到、
+     * 也早过了转场窗口，纯粹是这条开关把它放过去了。而一次合成拖拽落在相机界面上，
+     * 按到的就是模式按钮/快门旁边那些控件，也就是他报的"转动时误触到其他地方"。
+     *
+     * `override_camera` 还是要有意义的：它现在只代表"相机里允许非注入类动作"（音量、亮度这些
+     * 不碰屏幕的），不再代表"可以往相机界面上扔手指"。
+     */
+    fun allowsInjectedAction(camera: Boolean, injectsTouch: Boolean): Boolean =
+        !(camera && injectsTouch)
 }

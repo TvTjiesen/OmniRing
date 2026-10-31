@@ -65,3 +65,39 @@
 - 转场窗口：只在"刚换应用 600ms 内"拦一次注手指，之后照旧。副作用是**他刚打开某个 App 立刻转环**时可能第一拍没反应 —— 这一条是有意换来的，业主判观感。
 
 装机复验步骤见 `HYPEROS3-TESTER.md` 的第 1、2 节，本机也按同一套判据走一遍。
+
+## 6. 真机新增发现（2026-10-31，A15 虚拟机实测）：**第一个门不是 HyperOS 版本，是 LSPosed 版本**
+
+用本机那台 `bench_a15`（AOSP Android 15 / x86_64 / Magisk + **LSPosed v1.11.0 (7209)**）装 cfg40，结果：
+
+```
+E/LSPosedContext  Failed to load class class xyz.nextalone.hyperzoomring.CrownModule
+java.lang.NoSuchMethodException: CrownModule.<init>
+    [interface io.github.libxposed.api.XposedInterface,
+     interface io.github.libxposed.api.XposedModuleInterface$ModuleLoadedParam]
+settings get global hzr_heartbeat → null
+```
+
+**模块彻底没跑**，而且它一次都没有尝试 `assets/xposed_init` 那条 legacy 入口。对照实验（把
+`META-INF/xposed/java_init.list` 与 `module.prop` 从包里拿掉，只留 legacy）之后：
+
+```
+settings get global hzr_heartbeat → base.apk|47230047|…;0;0;;;0;0;0/0     ← 活着
+W HyperZoomRing: mt350x sensor not found yet, retrying …（15 次后 Gave up）  ← 传感器不在也干净退场
+```
+
+结论三条，都直接影响"OS3 能不能跑"：
+
+1. **只要酷友的 LSPosed 低于认 102 的那一版，双声明并存 = 模块静默不加载**（不是"部分功能没有"，是全都没有）。
+   所以对外发布之前必须先定这条：要么只发 legacy 声明（哪版框架都能加载，代价是 LSPosed 2.2.1 里那条
+   "使用已废弃 API"的警告会重新出现），要么在帖子和 README 里把"LSPosed 需 ≥2.2.x"写成硬性前提。
+2. `module.prop` 里加 `minApiVersion=102` **在 v1.11.0 上不生效**（实测无效，它照样去实例化 `CrownModule` 然后炸），
+   所以不能靠这个元数据把老框架引到 legacy 上。声明保留（对着 spec 写是对的），但不能当保险。
+3. **`lastAcceptedAtMs=0` 时输入侧自己接管**这条兜底，现在有了真机证据（不再只是单测）：这台 A15 上
+   没有 `mt350x` 传感器，传感器路 15 次重试后干净放弃、不崩不炸，输入侧的判据会走 `EXECUTE`。
+
+顺带把相机那条 bug 定案了（原来的第三条候选已被排除）：真机日志是
+`执行注入 scroll fg=com.android.camera cam=true 切换后 8015ms`，包名、前台、转场窗口全都判对，
+它照样执行 —— 因为旧放行条件是"相机在前台**且未开 override_camera**"，而他这台是 `override_camera=true`。
+cfg40 起改成硬规则：**相机在前台时，一切 `injectsTouch` 动作一票否决**（两条入口都拦，判据同一个
+`ForegroundGate.allowsInjectedAction`），开关现在的语义只剩"相机里允不允许非注入类动作"。

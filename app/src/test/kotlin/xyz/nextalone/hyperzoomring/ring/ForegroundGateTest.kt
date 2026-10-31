@@ -64,6 +64,27 @@ class ForegroundGateTest {
     }
 
     @Test
+    fun `相机里注手指类动作永远不许执行，和 override_camera 无关`() {
+        // 2026-10-31 真机定案：日志里 `执行注入 scroll fg=com.android.camera cam=true 切换后 8015ms`。
+        // 包名认对、前台读到、切换也早过了 600ms 窗口 —— 它照样执行，只因为那条放行写的是
+        // "相机在前台**且没开覆盖**"。而他打开的就是覆盖。一次合成拖拽落在相机界面上，
+        // 就是他报的"转动时误触到其他地方"。所以这条必须是硬的。
+        assertFalse(ForegroundGate.allowsInjectedAction(camera = true, injectsTouch = true))
+    }
+
+    @Test
+    fun `相机里非注入的动作照旧放行`() {
+        // 音量/亮度这类不碰屏幕的动作是 override_camera 存在的意义，不能一起砍掉。
+        assertTrue(ForegroundGate.allowsInjectedAction(camera = true, injectsTouch = false))
+    }
+
+    @Test
+    fun `不在相机里时这条闸门什么都不做`() {
+        assertTrue(ForegroundGate.allowsInjectedAction(camera = false, injectsTouch = true))
+        assertTrue(ForegroundGate.allowsInjectedAction(camera = false, injectsTouch = false))
+    }
+
+    @Test
     fun `前台包名读失败只短暂缓存 读成功才缓存满窗口`() {
         assertEquals(200L, ForegroundGate.cacheTtlMs(pkg = "com.android.camera", okTtlMs = 200L, failTtlMs = 40L))
         assertEquals(40L, ForegroundGate.cacheTtlMs(pkg = null, okTtlMs = 200L, failTtlMs = 40L))

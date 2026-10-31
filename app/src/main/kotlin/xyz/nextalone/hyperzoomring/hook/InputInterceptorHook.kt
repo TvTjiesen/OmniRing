@@ -240,7 +240,8 @@ object InputInterceptorHook {
         val foregroundPkg = getForegroundPackage(context)
 
         // Camera override: overrideCamera=false means camera always gets passthrough
-        val cameraPassthrough = isCameraPackage(foregroundPkg) && !config.overrideCamera
+        val isCameraNow = isCameraPackage(foregroundPkg)
+        val cameraPassthrough = isCameraNow && !config.overrideCamera
 
         // 两条入口的互斥。HyperOS 3 上输入侧和传感器侧会**同时**收到一次转动，
         // 不加这道闸就是双倍执行（滚动双倍速、音量跳两格）。判据与理由见 [RingSourceArbiter]。
@@ -307,6 +308,14 @@ object InputInterceptorHook {
         }
 
         val ctx = context
+        // 相机里一票否决合成手指，**与 override_camera 无关**（判据见 ForegroundGate.allowsInjectedAction）。
+        // 放行给系统 = 原生变焦照常工作，这正是他要的"相机里转环就是变焦，不是划屏幕"。
+        if (!ForegroundGate.allowsInjectedAction(isCameraNow, action.injectsTouch)) {
+            if (debugInjectLog()) {
+                Log.i(TAG, "FG 相机内否决注手指 ${action.id} fg=$foregroundPkg override=${config.overrideCamera}")
+            }
+            return false
+        }
         // 我们自己的 App 在前台时不要往自己屏幕上注手指：那根假手指会落进我们自己的
         // 卡片/列表里，位移不够就被判成点击 —— 他报的"应用内一转环就误触打开东西"。
         // 环事件广播在上面已经发过了，应用内改由 MainActivity 直接滚当前页。
@@ -322,7 +331,7 @@ object InputInterceptorHook {
             if (debugInjectLog()) {
                 Log.i(
                     TAG,
-                    "FG 转场窗口内跳过 ${action.id} fg=$foregroundPkg cam=$cameraPassthrough " +
+                    "FG 转场窗口内跳过 ${action.id} fg=$foregroundPkg cam=$isCameraNow " +
                         "切换后 ${android.os.SystemClock.uptimeMillis() - fgChangedAtMs}ms",
                 )
             }
@@ -333,7 +342,7 @@ object InputInterceptorHook {
             // 一眼能分清是"包名不在白名单"还是"读到空/读慢一拍"。开：settings put global hzr_debug_log 1
             Log.i(
                 TAG,
-                "FG 执行注入 ${action.id} fg=$foregroundPkg cam=$cameraPassthrough " +
+                "FG 执行注入 ${action.id} fg=$foregroundPkg cam=$isCameraNow " +
                     "切换后 ${android.os.SystemClock.uptimeMillis() - fgChangedAtMs}ms",
             )
         }

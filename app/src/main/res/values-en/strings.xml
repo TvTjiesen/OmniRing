@@ -98,7 +98,7 @@
     <string name="home_dispatch">Mode</string>
     <string name="home_camera">Camera</string>
     <string name="home_override_camera">Override camera apps</string>
-    <string name="home_override_on">The ring runs custom actions inside the camera</string>
+    <string name="home_override_on">Non-touch actions only (volume, brightness); swipes never fire in-camera</string>
     <string name="home_override_off">The ring keeps stock camera zoom</string>
     <string name="home_seek">Video / audio scrub ring</string>
     <string name="home_seek_switch">Use scroll as playback position while playing</string>

@@ -99,7 +99,7 @@
     <string name="home_dispatch">分發模式</string>
     <string name="home_camera">相機設定</string>
     <string name="home_override_camera">覆蓋相機應用程式</string>
-    <string name="home_override_on">變焦環在相機內執行自定義動作</string>
+    <string name="home_override_on">相機內只接管不碰螢幕的動作（音量、亮度等）；滑動類一律不執行</string>
     <string name="home_override_off">相機內保持原始變焦功能</string>
     <string name="home_seek">影片/音訊進度環</string>
     <string name="home_seek_switch">播放時把捲動改成調進度</string>
