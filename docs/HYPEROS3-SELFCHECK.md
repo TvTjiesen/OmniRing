@@ -101,3 +101,80 @@ W HyperZoomRing: mt350x sensor not found yet, retrying …（15 次后 Gave up�
 它照样执行 —— 因为旧放行条件是"相机在前台**且未开 override_camera**"，而他这台是 `override_camera=true`。
 cfg40 起改成硬规则：**相机在前台时，一切 `injectsTouch` 动作一票否决**（两条入口都拦，判据同一个
 `ForegroundGate.allowsInjectedAction`），开关现在的语义只剩"相机里允不允许非注入类动作"。
+
+### 6.1 这一条已经**做成产品决定**，不再是待议项（cfg42，2026-10-31 晚）
+
+上面第 1 条那两个选择，现在按"两个都要"落地了，用构建开关分车道：
+
+| 车道 | 怎么出包 | 给谁 | 为什么 |
+| --- | --- | --- | --- |
+| 双声明（现行） | `./gradlew assembleRelease` | 他自己的日常机（LSPosed 2.2.1） | 走 102 入口，LSPosed 不再报"使用已废弃 API"，真机探针回显 `entry=modern102 installed=6` |
+| **legacy-only** | `./gradlew -Phzr.legacyOnly=true assembleRelease` | **发给酷友的 OS3 测试包** | 老框架撞上双声明会一条都不加载；只留 `assets/xposed_init` 哪版都吃，代价只是那条废弃警告 |
+
+成品包（同一签名，可互相覆盖安装）：`build/omniring-1.39.0-dual.apk`（4,718,164 B，md5 `b7b31d2f…`）
+与 `build/omniring-1.39.0-legacy.apk`（4,717,831 B，md5 `82aeb268…`）。**两者字节不同**，
+`unzip -l` 对照过：legacy 那份确实没有 `META-INF/xposed/{module.prop,java_init.list}`，
+而 `assets/xposed_init`、`META-INF/yukihookapi_init` 都还在。
+
+legacy 那份在 `bench_a15`（还是那台 LSPosed v1.11.0）上跑过一次完整闭环，判据用
+`bash tools/legacy_bench_verify.sh`（装机 → 等 35s 换 codePath → 重启 → 探针 8192 回读）：
+
+```
+entry=legacy installed=0  legacyHooked=filterInputEvent,injectInputEvent
+runtime=started=true ctx=ok cfg=ok recv=NullPointerException bootWait=-1 build=cfg42
+心跳 base.apk|4717831|…;0;0;;;0;0;0/0        ← 4717831 正好是 legacy 包的字节数
+```
+
+这行里有三件事必须一起看，单看任何一件都会读错，所以顺手把探针补成现在这样：
+
+1. `installed=0` **不是**"一个钩子都没装"。那本账记的是 102 入口（`CrownHooks`）的计数，
+   legacy 入口根本不经过它。今天第一次读回显时我差点把它判成"legacy 加载了但没装钩子"，
+   于是新增 `legacyHooked=`（legacy 自己逐点登记）和 `runtime=`（两条入口共用的那半截）。
+   现在读出来是 `filterInputEvent,injectInputEvent` 两个点装上 ——
+   `launchCamera` 不在是**预期**的：那是 `com.miui.server` 里的类，AOSP 虚拟机上本来就没有。
+2. `recv=NullPointerException` 是 ConfigSync 的接收器在这台机上注册失败。按既有取证，
+   开机头两分钟这是正常态；但这条在 bench 上**超过 30 秒还在**，所以它只能算
+   "虚拟机侧未收敛的观测"，不能拿来推断真机 —— 真机（cfg41/OS4）同一探针路径下
+   `CFG applied push config (#4, 14 keys)` 是正面证据，配置通道是通的。
+   OS3 测试者那边这一条写进了回执清单，让他们按 `hzr_cfg_state` 回传。
+3. 心跳签名只是"装上去那个文件的长度和 mtime"，**证明不了 system_server 加载的是哪份 dex**。
+   所以 `tools/deploy_verify.sh` 现在硬性要求探针回显 `build=<源码里的戳>`，
+   对不上直接 fail；同时它还断言 `module_enabled` 是真的（见下一节，今天那个"环直接失效"就是这个）。
+
+## 7. "变焦环直接失效"这一案：模块活着，开关关着（2026-10-31，真机 nezha）
+
+他报"环完全不动"。当时最容易顺手接受的结论是"cfg41 装坏了 / LSPosed 又没追上新 codePath"，
+但两条正面证据都不支持：
+
+```
+su -c 'grep hyperzoomring /proc/$(pidof system_server)/maps'
+  → /data/app/~~51f4yjiT0…/xyz.nextalone.hyperzoomring-…/base.apk   ← 装的那一份
+探针 8192 → entry=modern102 installed=6 FILTER_INPUT=1 INJECT_INPUT=1
+            INTERCEPT_KEY=1 LAUNCH_CAMERA=3 bootWait=1 build=cfg41   ← 新 dex 真的在跑
+App 一开 → CFG push 397B / CFG applied push config (#4, 14 keys)     ← 配置通道也通
+```
+
+（注意 maps 那两行只能算旁证：system_server 自己也会 mmap 已安装 APK 去读资源与清单，
+命中不等于加载。判死活以探针回显的 `build=` 为准。）
+
+真根因在配置里，不在代码里：
+
+```
+/data/data/…/shared_prefs/hyperzoomring_config.xml
+  <boolean name="module_enabled" value="false" />
+```
+
+`SensorRingDriver` 收到每一个样本的第一句就是 `if (!config.isEnabled) return`，
+所以环是**被设计成不动的**——总开关关了。App 首页那张状态卡也确实写着"模块总开关是关的 /
+打开下面的『启用变焦环』"，判定没骗人；是我这一轮验收没有把这一项列进闸门，
+于是"模块加载、钩子装好、配置推通"三项全绿，而用户看到的是彻底失灵。
+
+处置与防复发：
+- 当场恢复：改 prefs 为 true（App 停掉再改，免得它用内存里的旧快照盖回来）→ 打开一次 App
+  触发 `ConfigPush` → 回读 `hzr_snapshot` 确认 `b module_enabled true`。
+- `tools/restore_prefs.py`：恢复映射时顺手把总开关掰回 true，并在 stdout 明说动了这一行。
+- `tools/deploy_verify.sh`：装机前断言那份配置里总开关是 true（PC 侧判，避开 adb→su -c→sh 三层引号）；
+  装机后用探针断言 `build=` 戳对得上；两者任一不满足直接 die，不再"看起来好了"。
+- 遗留待他判：`hzr_scrub_y` 设备上还是 0.27，而代码默认与 README 都是 0.45。
+  这条我**没有**烘进代码，也没删键 —— 找不到"0.27 是被确认过的值"的证据，
+  把它写成默认值就是把猜的写成测的。

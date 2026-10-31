@@ -102,14 +102,18 @@ class RingEaseState {
     }
 }
 
+/** 应用内表冠的默认像素增益（真机调出来的，别再退回 1.2，理由见下面那段） */
+const val DEFAULT_PX_PER_UNIT = 2.5f
+
 /**
- * 一个传感器单位换多少滚动像素。**默认 1.2 就是外面那条（第三方 App 里
- * `ScrollAction` 的 `hzr_scroll_gain`）的默认值** —— 同一个单位、同一个像素增益，
- * 里面和外面转一样多角度就滚一样远。
+ * 一个传感器单位换多少滚动像素。
  *
- * 之前对不上不是这个数的问题：广播那条把 200ms 窗口里除最后一个样本之外的增量全丢了，
- * App 只看到约十分之一的转动量。那个累加补上之后，这里就该用回和外面一样的 1.2。
- * 热调：`adb shell settings put global hzr_ring_px_per_unit 1.2`
+ * 为什么不是外面那条的 1.2：外面（第三方 App 里的 `ScrollAction`）一拍滚的是**别人的列表**，
+ * 一屏能装十几行，1.2 已经够；里面这块表盘滚的是自己的设置页，一行才 70~80px，
+ * 同样 1.2 实测一拍只挪 30px —— 他真机的结论是"太顿、像没跟上"（#92）。
+ * 真机上一路热调到 2.5 才顺眼，所以**把 2.5 烘成代码默认值**：调试键是会被
+ * 清掉/换机丢的，调好的手感只活在 `Settings.Global` 里等于没调。
+ * 想再改：`adb shell settings put global hzr_ring_px_per_unit 2.0`（不用重装，2 秒内生效）
  */
 private var pxCache = 0f
 private var pxAt = 0L
@@ -119,8 +123,8 @@ fun ringPxPerUnit(context: android.content.Context): Float {
     if (now - pxAt > 2000L) {
         pxAt = now
         pxCache = runCatching {
-            android.provider.Settings.Global.getFloat(context.contentResolver, "hzr_ring_px_per_unit", 1.2f)
-        }.getOrDefault(1.2f)
+            android.provider.Settings.Global.getFloat(context.contentResolver, "hzr_ring_px_per_unit", DEFAULT_PX_PER_UNIT)
+        }.getOrDefault(DEFAULT_PX_PER_UNIT)
     }
     return pxCache
 }

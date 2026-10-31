@@ -65,6 +65,16 @@ run "rm -f $TMP_DEV" >/dev/null
 N=$(run "grep -c gesture_ $PREFS")
 [ "${N:-0}" -ge 4 ] || die "配置恢复失败（只找到 $N 条 gesture 键）"
 say "现在的映射：$(run "grep gesture_ $PREFS" | tr -d " " | tr "\n" " ")"
+# 总开关必须是真的，否则下面每一条验收都在判一个"本来就该没反应"的环
+#（2026-10-31 那次"变焦环直接失效"就是这个：模块活着、开关关着，全线绿灯的假象）
+# 这条检查放在 PC 侧那份文件上做：设备侧要穿 adb→su -c→sh 三层引号，
+# 而 pattern 里带双引号一定会把外层截断（脚本开头就写过这个坑）。
+LINE=$(grep module_enabled "$TMP_LOCAL")
+case "$LINE" in
+  *value=\"true\"*) say "总开关：开" ;;
+  "") say "总开关：键不存在（ConfigManager 默认就是开）" ;;
+  *) die "设备上的总开关还是关着的：$LINE —— 环不可能有反应" ;;
+esac
 
 # ---------- 2. 装机 ----------
 APK_LOCAL=$(printf '%s' "$APK" | sed -e "s|^\([A-Za-z]\):|/\1|" -e "s|^/D|/d|")
@@ -127,7 +137,30 @@ else
   [ -n "$LOADED" ] || die "两次重启都没带着新签名起来 —— 去 LSPosed 里把模块关开一次"
 fi
 
-# ---------- 4. 验收：配置推送通道 ----------
+# ---------- 4. 验收：system_server 里跑的到底是哪一版 ----------
+# 为什么不能只看心跳签名：签名是"文件名|长度|mtime"，只能证明装上去的那份文件对，
+# 证明不了 system_server 加载的是它（lspd 会缓存模块内容，实测出现过 App 进程新代码、
+# 框架里还是旧代码）。唯一不骗人的是探针回显里的 build 戳 —— 它由**跑着的那份 dex** 自己打印。
+# 今天还多了一个坑：hzr_entry 是探针键驱动的，探针没再跑过一次，它就停在上一版的戳上
+#（我这次就是先读了到 cfg36 的残留，差点判成"装的是旧包"）。所以每次都强制触发一次。
+BUILD_TAG=$(grep -o 'BUILD_TAG = "[^"]*"' app/src/main/kotlin/xyz/nextalone/hyperzoomring/hook/DebugProbe.kt | sed 's/.*"\(.*\)"/\1/')
+[ -n "$BUILD_TAG" ] || die "读不出源码里的 BUILD_TAG，没法判哪版在跑"
+say "源码里的戳：$BUILD_TAG"
+# 8192=入口体检。探针会去重（同一个值只跑一次），所以第一次读不对就换个值再逼它跑一次
+run "settings put global hzr_probe 8192" >/dev/null
+sleep 5
+ENTRY=$(run "settings get global hzr_entry")
+case "$ENTRY" in
+  *build=$BUILD_TAG*) : ;;
+  *) run "settings put global hzr_probe 8193" >/dev/null; sleep 5; ENTRY=$(run "settings get global hzr_entry") ;;
+esac
+say "入口回显：$ENTRY"
+case "$ENTRY" in
+  *build=$BUILD_TAG*) say "结论：system_server 里跑的就是 $BUILD_TAG" ;;
+  *) die "框架里跑的还是旧 dex（$ENTRY），新代码没生效 —— 去 LSPosed 里把模块关开一次，再重启框架" ;;
+esac
+
+# ---------- 5. 验收：配置推送通道 ----------
 say "等 App 把配置推过来（开机后钩子会主动要三次：2s / 8s / 20s）"
 STATE=""
 for i in $(seq 1 12); do
@@ -158,12 +191,12 @@ case "$STATE" in
   *) say "结论：推送通道通了（改设置不用再重启框架）" ;;
 esac
 
-# ---------- 5. 收尾：清掉调试键 ----------
+# ---------- 6. 收尾：清掉调试键 ----------
 say "清理调试键"
-for K in hzr_probe hzr_map hzr_cfg hzr_debug; do
+for K in hzr_probe hzr_map hzr_cfg hzr_debug hzr_entry hzr_inj; do
   run "settings delete global $K" >/dev/null
 done
-for K in hzr_probe hzr_map hzr_cfg hzr_debug; do
+for K in hzr_probe hzr_map hzr_cfg hzr_debug hzr_entry hzr_inj; do
   V=$(run "settings get global $K")
   [ "$V" = "null" ] || echo "  残留：$K=$V"
 done

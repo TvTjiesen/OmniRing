@@ -30,7 +30,7 @@ object DebugProbe {
      * 实测出现过 App 进程是新代码、system_server 还是旧代码的情况），
      * 所以每条回显都带上这个戳，一眼看出到底加载的是哪一版。
      */
-    const val BUILD_TAG = "cfg41"
+    const val BUILD_TAG = "cfg42"
 
     /**
      * 哪条入口真的把模块带进了 system_server：`legacy` / `modern102` / `none`。
@@ -164,7 +164,11 @@ object DebugProbe {
         // 这一条把入口名、102 装了几个钩点、等 Context 等了多久一次性写回来，
         // 不用转环、不用重编译，也能判断"modern 入口到底活着没"。
         if (cmd and 8192L != 0L) {
+            // 两条入口的"装了几个钩点"记在两处，必须都回显：
+            // CrownHooks 的计数只覆盖 102 那条，legacy 那条走 InputInterceptorHook.hook()，
+            // 只读前者的话 legacy 加载成功也会显示 installed=0（今天就是这么被骗过一次）。
             val line = "entry=$entryPath ${CrownHooks.diagnostics()} " +
+                "legacyHooked=${InputInterceptorHook.legacyHookedSummary()} runtime=${InputInterceptorHook.runtimeSummary()} " +
                 "bootWait=${CrownHooks.Boot.contextWaitMs} build=$BUILD_TAG"
             Log.i(TAG, "PROBE $line")
             runCatching { Settings.Global.putString(context.contentResolver, "hzr_entry", line) }

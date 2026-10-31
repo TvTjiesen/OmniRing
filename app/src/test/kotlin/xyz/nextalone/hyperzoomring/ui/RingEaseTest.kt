@@ -8,7 +8,7 @@ import org.junit.Test
  * 应用内表冠缓动的纯数学验证（他的要求：算法抽纯、在 PC 上回放，不许拿真机试错）。
  *
  * 真机样本口径：模块侧环事件 200ms 一拍，一拍约 20~40 个传感器单位，
- * 按默认 1.2 px/单位 ≈ 24~48px。下面统一按 60Hz 帧间隔回放。
+ * 按默认 [DEFAULT_PX_PER_UNIT] px/单位 ≈ 50~100px。下面统一按 60Hz 帧间隔回放。
  */
 class RingEaseTest {
 
@@ -122,5 +122,15 @@ class RingEaseTest {
         val (move, applied) = RingEase.step(3000f, 0f, 16f, 0f, RingEase.MAX_STEP_PX)
         assertEquals(3000f, move, 0.001f)
         assertEquals(3000f, applied, 0.001f)
+    }
+
+    @Test
+    fun `应用内表冠的灵敏度默认值必须是真机调出来的 25`() {
+        // 这条是给"烘默认值"上的锁：2.5 是他真机调到顺眼之后才定下来的，
+        // 以前它只活在调试键 hzr_ring_px_per_unit 里 —— 键被清掉、换机器、
+        // 或者谁把它"和外面统一回 1.2"，手感就悄无声息退回"顿顿的"。
+        // 想改这个数：先在真机 A/B 过，再连注释一起改，不要偷偷动默认值。
+        assertEquals(2.5f, DEFAULT_PX_PER_UNIT, 1e-6f)
+        assertTrue("外面那条的 1.2 不等于里面这块表冠的默认值", DEFAULT_PX_PER_UNIT > 1.2f)
     }
 }

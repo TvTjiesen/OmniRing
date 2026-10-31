@@ -15,8 +15,8 @@ android {
         // 装机验收已经跑了十几轮，还有一堆已知问题没收敛 —— 按他的要求版本号要动起来并以 beta 结尾。
         // 口径：versionCode = 第几轮装机（每次交付 +1），versionName 跟着轮次走高、
         // 始终以 -beta 结尾（这是测试项目，他明确要求不要停在 1.0.0）。
-        versionCode = 48
-        versionName = "1.38.0-beta"
+        versionCode = 49
+        versionName = "1.39.0-beta"
     }
 
     signingConfigs {
@@ -59,6 +59,29 @@ android {
             val releaseConfig = signingConfigs.findByName("release")
             if (releaseConfig?.storeFile != null) {
                 signingConfig = releaseConfig
+            }
+        }
+    }
+
+    /**
+     * 「只留传统入口」的发布开关：`./gradlew -Phzr.legacyOnly=true assembleRelease`
+     *
+     * 为什么要这个开关（2026-10-31 在自建虚拟台 bench_a15 上做的对照实验）：
+     * 现在包里**同时**声明了两条入口 —— libxposed 102（META-INF/xposed/module.prop +
+     * java_init.list，走 CrownModule）和传统 YukiHook（assets/xposed_init，走 HookEntry）。
+     * LSPosed 2.2.1 认这个组合（真机探针回显 entry=modern102、6 个钩点位全装上），
+     * 但**老版本 LSPosed（v1.11.0）撞上双声明时一条都不加载**：模块在管理器里看着是
+     * "已启用"，system_server 里连 dex 都没进来。酷友的 HyperOS 3 机器我们没法预装，
+     * 他们手上大概率就是老版本 —— 一个"装完静默不工作"的包对远程测试等于自杀。
+     *
+     * 关掉 libxposed 声明后，任何版本的 Xposed/LSPosed 都只走传统入口，
+     * 这条入口在本工程里是完整可用的（它本来就是上游原版唯一的那条）。
+     * 判"这版到底走的哪条"不用猜：探针 8192 回显的 `entry=` 就是加载时记下来的真值。
+     */
+    packaging {
+        resources {
+            if (providers.gradleProperty("hzr.legacyOnly").orNull == "true") {
+                excludes += "META-INF/xposed/**"
             }
         }
     }

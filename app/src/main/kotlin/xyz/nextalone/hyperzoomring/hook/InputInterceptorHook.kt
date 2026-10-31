@@ -117,6 +117,39 @@ object InputInterceptorHook {
     @Volatile
     private var lastProcessedEventTime: Long = 0
 
+    /**
+     * legacy 入口这条**装上了哪几个钩点**，逐个记名字。
+     *
+     * 为什么要落到能回读的地方（2026-10-31 在 bench_a15 上撞到的）：
+     * 探针 8192 那行回显的是 [CrownHooks] 的计数（`installed=6 FILTER_INPUT=1…`），
+     * 而 legacy 入口根本不经过 CrownHooks —— 于是它装完 3 个钩点之后自己报的还是
+     * `installed=0`，看起来像"加载了但一个钩子都没装"。logcat 又活不过几分钟
+     *（虚拟机开机那阵日志很吵，"Hooked filterInputEvent" 早被滚掉了），
+     * 远程测试的人根本没法自证。这条计数是**装钩子那一刻**写的，探针随时能读回来。
+     *
+     * 只描述 legacy 这条入口，别和 modern 的计数混着读 —— 名字就叫 legacyHooked。
+     */
+    private val legacyHooked = java.util.concurrent.CopyOnWriteArrayList<String>()
+
+    fun legacyHookedSummary(): String =
+        if (legacyHooked.isEmpty()) "none" else legacyHooked.joinToString(",")
+
+    private fun markLegacyHooked(name: String) {
+        if (name !in legacyHooked) legacyHooked.add(name)
+    }
+
+    /**
+     * 共用的那半截运行时到底起来没有 —— 两条入口都要看这一行。
+     *
+     * `started` 只说"startRuntime 进过一次"；配置收不收得到是另一件事，
+     * 所以同时回显接收器的注册结果：装完包"界面能开但转环不动"的两种成因
+     *（运行时没起来 / 推送通道没注册上）在这里一次分开。
+     */
+    fun runtimeSummary(): String =
+        "started=$runtimeStarted ctx=${if (appContext == null) "null" else "ok"} " +
+            "cfg=${if (this::config.isInitialized) "ok" else "unset"} " +
+            "recv=${ConfigSync.registerError ?: "ok"}"
+
     fun hook(param: PackageParam, config: ConfigManager) = with(param) {
         this@InputInterceptorHook.config = config
         currentConfig = config
@@ -144,6 +177,7 @@ object InputInterceptorHook {
                 }
             }
             Log.i(TAG, "Hooked ShortCutActionsUtils.launchCamera")
+            markLegacyHooked("launchCamera")
         } catch (e: Exception) {
             Log.w(TAG, "ShortCutActionsUtils not found", e)
         }
@@ -170,6 +204,7 @@ object InputInterceptorHook {
                 }
             }
             Log.i(TAG, "Hooked filterInputEvent")
+            markLegacyHooked("filterInputEvent")
         } catch (e: Exception) {
             Log.w(TAG, "filterInputEvent not available", e)
         }
@@ -191,6 +226,7 @@ object InputInterceptorHook {
                 }
             }
             Log.i(TAG, "Hooked injectInputEvent")
+            markLegacyHooked("injectInputEvent")
         } catch (e: Exception) {
             Log.w(TAG, "injectInputEvent not available", e)
         }
@@ -214,6 +250,9 @@ object InputInterceptorHook {
                 }
             }
         } catch (_: Exception) {}
+        // 第三个钩点（interceptKeyBeforeQueueing）**不进** legacyHooked 那本账：
+        // 它失败的时候被 `onHookingFailure { }` 静默吞掉（签名对不上是这条 ROM 的常态），
+        // 在这里补一行"装上了"等于把猜的写成测的。宁可少报一项。
 
         // Fullscreen detection removed — hooking layout-pass methods
         // (beginPostLayoutPolicyLw / applyPostLayoutPolicyLw) causes system_server

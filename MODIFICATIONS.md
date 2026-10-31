@@ -197,3 +197,22 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 
 版本号：`versionCode 45` / `versionName 1.35.0-beta` / `DebugProbe.BUILD_TAG = cfg39`。
 测试：33 类 / 202 条断言 / 0 失败（基线 175，本轮 +27）。
+
+---
+
+## 第十一批（2026-10-31）· 相机硬规则 + 启动动画收尾 + "环直接失效"的真根因 + 老 LSPosed 的发布车道
+
+| 变更 | 文件 | 为什么（不是"顺手改"，都有根因） |
+| --- | --- | --- |
+| 相机内**硬**否决注手指 | `ring/ForegroundGate.allowsInjectedAction`、`SensorRingDriver.deliver` | 相机误触发那条我上一轮是靠 `override_camera` 判的，而他那份 prefs 里 `override_camera=true`（他自己都不知道什么时候打开的）—— 于是一个"允许覆盖"的开关把闸门整个让过去了。现在改成：相机在前台时**不论这个开关**都不注入手指，开关只能往更严的方向调。真机取证：`MIUIInput` 里 ACTION_DOWN/UP 间隔 17ms 那批幽灵触摸消失 |
+| 启动动画：浅色主题下齿必须换墨色 | `ui/launch/LaunchOverlay.kt`、`ForegroundGate.toothOnLight/luma` + 单测 | 虚拟机是暗色主题，所以第一版在真机（浅色）上滚花齿画在白底上等于没画，表冠变成一个光边圆盘。判据是录屏逐帧量的：齿带半径 21.8~27.6，深色表盘只到 19.2 —— 齿本来就在页面背景上，必须跟着底色换色 |
+| 动效收尾参数烘进代码 | `ui/RingEase.kt`（`DEFAULT_PX_PER_UNIT = 2.5f`）+ `RingEaseTest` 锁 | 应用内表冠的 2.5 是他真机调到顺眼才定的，之前**只活在调试键** `hzr_ring_px_per_unit` 里；键被清掉/换机就悄悄退回"顿顿的" 1.2。现在默认值进代码，单测钉住不许偷偷统一回 1.2，调试键仍然可以覆盖做 A/B |
+| `hzr.legacyOnly` 发布开关 | `app/build.gradle.kts`、`tools/legacy_bench_verify.sh`（新） | 见 `docs/HYPEROS3-SELFCHECK.md` §6：包里的**双入口声明**在老 LSPosed（v1.11.0）上会让模块**一条都不加载**，而界面看起来一切正常。酷友的 OS3 机器我们预装不了，他们手上大概率就是老版本，所以给测试者发的是"只留 legacy"这一份（`-Phzr.legacyOnly=true`），老新框架都吃这一条 |
+| 探针不再只报 modern 的计数 | `DebugProbe`（8192）、`InputInterceptorHook.legacyHookedSummary/runtimeSummary` | bench 上第一次读回显是 `entry=legacy installed=0`，差点判成"legacy 加载了但没装钩子"。真原因是 `installed` 这本账只记 102 那条入口，而 logcat 几分钟就被滚干净。现在 legacy 装了哪几个钩点、共用的运行时起没起、接收器注册成没成，全部落进一行可回读的探针回显 |
+| 装机验收加两道硬闸门 | `tools/deploy_verify.sh`、`tools/restore_prefs.py` | ① **总开关**：`module_enabled=false` 时 `SensorRingDriver` 收到样本第一件事就是 return，于是"模块活着、环不动"，而我们所有验收项照样全绿 —— 这台机上"变焦环直接失效"就是这个。脚本现在会在恢复映射时把它掰回 true 并打印明说，装完再断言一次。② **build 戳**：心跳签名只是"文件多大/几点装的"，证明不了 system_server 加载的是哪份 dex；现在必须用探针逼出一次 `build=cfgNN` 回显，对不上直接 fail（而不是"看起来好了"） |
+
+热调键新增：`hzr_ring_px_per_unit`（默认已烘成 2.5）。
+`hzr_scrub_y` 在他机上还是 0.27（代码默认 0.45，README 也写的 0.45）—— 这条**没烘**，因为没找到 0.27 是被确认过的证据，只当残留待他判。
+
+版本号：`versionCode 49` / `versionName 1.39.0-beta` / `DebugProbe.BUILD_TAG = cfg42`。
+测试：34 类 / 214 条断言 / 0 失败（上一轮 202，本轮 +12 条含 RingEase 默认值锁与启动动画 8 条）。
