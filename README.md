@@ -76,13 +76,20 @@ adb shell settings put global hzr_debug 1              # 打开后 logcat 有 SM
 # 交付用 release（R8 + 资源收缩）：46.9MB → 4.67MB，别拿 debug 包当性能基线
 ./gradlew :app:assembleDebug          # 产物：app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease        # 产物：app/build/outputs/apk/release/app-release.apk（R8）
-./gradlew :app:testDebugUnitTest      # 158 个 JVM 单测（真机样本离线回放、生效判定、形变数学、缓动数学、多语对齐）
+./gradlew :app:testDebugUnitTest      # 214 个 JVM 单测（真机样本离线回放、生效判定、形变数学、缓动数学、多语对齐）
 ```
 
 release 的签名配置在没有 `KEYSTORE_FILE` 环境变量时**回落到 `~/.android/debug.keystore`** ——
 这是故意的：和 debug 包同一张证书，`install -r` 才能不卸载覆盖，不丢 LSPosed 的模块记录与作用域。
 公开发布请给正式 keystore（四个环境变量：`KEYSTORE_FILE/PASSWORD` + `KEY_ALIAS/PASSWORD`），
 注意换签名那一次必须卸载重装。
+
+**正式密钥由 `bash tools/make_release_key.sh` 生成，必须由发布人本人跑**（口令只从终端静默读入，
+不落任何文件、不进历史；密钥默认放在仓库外的 `E:/dev/keys`）。这把钥匙一旦用于公开版本就永远不能换，
+所以要在第一次对外发布之前定下来。
+
+**要进 LSPosed 模块商店请看 `docs/LSPOSED-STORE.md`**：一手流程、我们差什么、
+以及"应用 ID 必须属于你"这条硬门槛的两条路怎么选（换包名 = 现有装机用户不能原地更新）。
 
 本机到 `dl.google.com` 是超时（Gradle 遇到连接失败不会顺延到 Maven Central），
 而 `assembleRelease` 需要 `org.jetbrains.kotlin:compose-group-mapping`，

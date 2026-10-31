@@ -73,3 +73,11 @@ brand/og_social_preview.png
 brand/assets/*.png
 # agent 自己的施工计划文档（107KB，写给 AI 看的脚手架），不是产品内容
 docs/superpowers/
+
+# 正式签名密钥：绝不可能进仓库（口令也绝不可能进任何文件）
+# tools/make_release_key.sh 默认把 .jks 放在仓库外的 E:/dev/keys，这里是第二道闸。
+*.jks
+*.keystore
+!debug.keystore
+keystore.properties
+*passfile*
