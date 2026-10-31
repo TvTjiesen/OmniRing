@@ -35,6 +35,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
+import xyz.nextalone.hyperzoomring.ui.launch.LaunchOverlay
+import xyz.nextalone.hyperzoomring.ui.launch.SplashLaunch
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -132,15 +137,26 @@ class MainActivity : ComponentActivity() {
                 colorSpec = spec,
                 paletteStyle = style,
             ) {
-                MainContent(
-                    onThemeChanged = {
-                        mode = config.themeMode
-                        keyColor = config.themeKeyColor
-                        spec = config.themeColorSpec
-                        style = config.themePaletteStyle
-                    },
-                    onRecreate = { recreate() },
-                )
+                // 冷启动进入动画：本进程只放一次（SplashLaunch.played），
+                // 从后台切回来重播会让人以为 App 重启装死了。
+                val appName = stringResource(R.string.app_name)
+                val tagline = stringResource(R.string.app_tagline)
+                var splash by remember { mutableStateOf(savedInstanceState == null && !SplashLaunch.played) }
+                SplashLaunch.played = true
+                Box(Modifier.fillMaxSize()) {
+                    MainContent(
+                        onThemeChanged = {
+                            mode = config.themeMode
+                            keyColor = config.themeKeyColor
+                            spec = config.themeColorSpec
+                            style = config.themePaletteStyle
+                        },
+                        onRecreate = { recreate() },
+                    )
+                    if (splash) {
+                        LaunchOverlay(title = appName, subtitle = tagline, onDone = { splash = false })
+                    }
+                }
             }
         }
     }
