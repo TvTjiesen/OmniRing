@@ -70,6 +70,12 @@ fun LaunchOverlay(title: String, subtitle: String, onDone: () -> Unit) {
     val base = MiuixTheme.colorScheme.background
     val accent = MiuixTheme.colorScheme.primary
     val onBase = MiuixTheme.colorScheme.onSurface
+    // 齿的颜色跟着底色亮度走：CrownArt 默认的 METAL 是近白，画在白背景上看不见（真机浅色列出来的）
+    val toothInk = if (LaunchAnim.toothOnLight(LaunchAnim.luma(base.red, base.green, base.blue))) {
+        Color(0xFF6C7A8C)
+    } else {
+        CrownArt.METAL
+    }
 
     LaunchedEffect(Unit) {
         if (reduced) {
@@ -163,7 +169,7 @@ fun LaunchOverlay(title: String, subtitle: String, onDone: () -> Unit) {
                     dial = CrownArt.DIAL.copy(alpha = a),
                     rim = CrownArt.RIM.copy(alpha = a),
                     inner = CrownArt.INNER.copy(alpha = a),
-                    metal = CrownArt.METAL.copy(alpha = a),
+                    metal = toothInk.copy(alpha = a),
                     dot = CrownArt.RED.copy(alpha = a),
                 )
             }

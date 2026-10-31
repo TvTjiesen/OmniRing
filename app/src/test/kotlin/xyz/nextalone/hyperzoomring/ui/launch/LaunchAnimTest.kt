@@ -1,6 +1,7 @@
 package xyz.nextalone.hyperzoomring.ui.launch
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -86,6 +87,18 @@ class LaunchAnimTest {
         assertEquals(1f, LaunchAnim.layerAlpha(400L), 1e-3f)
         assertEquals(1f, LaunchAnim.layerAlpha(LaunchAnim.FADE_OUT_START_MS - 1), 1e-3f)
         assertEquals(0f, LaunchAnim.layerAlpha(LaunchAnim.totalMs()), 1e-3f)
+    }
+
+    @Test
+    fun `浅色主题下滚花齿必须换成深色墨水`() {
+        // 真机（1200x2608 / 浅色主题）录屏量出来的：齿带在半径 21.8~27.6，而深色表盘只到 19.2 ——
+        // 齿是画在**页面背景**上的，默认那支近白 METAL 放到白底上等于没画，
+        // 表冠于是变成一个光边圆盘（条带第 24、27 帧）。虚拟机是暗色，所以这条之前测不出来。
+        assertTrue(LaunchAnim.toothOnLight(LaunchAnim.luma(1f, 1f, 1f)))
+        assertTrue(LaunchAnim.toothOnLight(LaunchAnim.luma(0.92f, 0.95f, 0.98f)))
+        assertFalse(LaunchAnim.toothOnLight(LaunchAnim.luma(0.05f, 0.07f, 0.10f)))
+        // 中灰底不许被判成亮底（阈值留了余量，不然渐变背景上会突然换色）
+        assertFalse(LaunchAnim.toothOnLight(LaunchAnim.luma(0.5f, 0.5f, 0.5f)))
     }
 
     @Test

@@ -87,6 +87,19 @@ object LaunchAnim {
 
     // ---- 减弱动效档：直接给终态，只留一次极短淡出（不是"零动效"，那会闪一下空白）----
 
+    /**
+     * 滚花齿该不该改用深色。
+     *
+     * 真机浅色主题录屏量出来的 bug：齿画在半径 21.8~27.6 的环带上，而表盘（玻璃面）只到 19.2 ——
+     * 也就是**齿根本不在深色盘上，是画在页面背景上的**。CrownArt 默认那套 `METAL=#F1F5FB` 在近黑底上才对，
+     * 放到白背景上等于没画（第 24、27 帧里表冠变成一个光边圆盘，齿全消失）。
+     * 0.6 这个阈取的是"页面底色明显偏亮"的判据，留了余量：中灰底不该被判成亮底。
+     */
+    fun toothOnLight(backgroundLuma: Float): Boolean = backgroundLuma > 0.6f
+
+    /** 一个颜色的感知亮度（0..1），只用来判亮底/暗底，不做严格 sRGB 线性化 */
+    fun luma(r: Float, g: Float, b: Float): Float = 0.299f * r + 0.587f * g + 0.114f * b
+
     fun reducedTotalMs(): Long = REDUCED_TOTAL_MS
     fun reducedCrownAlpha(): Float = 1f
     fun reducedCrownScale(): Float = 1f
