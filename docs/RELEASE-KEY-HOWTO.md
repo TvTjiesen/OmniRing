@@ -33,7 +33,7 @@ V2 Signer: certificate SHA-256 digest: 717b08caca860b903dccaaa689e6d018761337b92
 
 ## 1B. 想用终端的话（和 1A 完全等价）
 
-## 1. 生成密钥（约 1 分钟）
+### 终端具体步骤
 
 打开 **Git Bash**（Win 键敲 `git` 就能看到「Git Bash」），逐行敲：
 
