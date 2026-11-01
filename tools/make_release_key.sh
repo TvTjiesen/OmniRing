@@ -30,7 +30,17 @@ TMP=""
 cleanup() { [ -n "$TMP" ] && rm -f "$TMP"; }
 trap cleanup EXIT
 
-ask_once() { bash -c 'read -rs -p "  $1: " p; printf "%s\n" "$p"' _ "$1" </dev/tty; }
+# 口令只从键盘静默读入：不回显、不进 shell 历史、不出现在任何命令行参数里。
+# 直接读进变量（不用 $(...) 命令替换），免得在子 shell 里读不到终端。
+read_pass() {  # read_pass <变量名> <提示语>
+    local __v=$1 __p=$2 __in
+    IFS= read -rs -p "$__p" __in || {
+        echo >&2
+        echo "!! 这个终端读不到输入。改用兜底办法：docs/RELEASE-KEY-HOWTO.md 第 4 节（keytool 自己会问口令）" >&2
+        exit 1
+    }
+    printf -v "$__v" '%s' "$__in"
+}
 
 # 口令交给 keytool 的唯一安全通道：0600 的临时文件，函数返回后由调用方负责删
 to_passfile() { TMP=$(mktemp -t hzrks.XXXXXX); chmod 600 "$TMP"; printf '%s\n' "$1" > "$TMP"; }
@@ -38,7 +48,8 @@ to_passfile() { TMP=$(mktemp -t hzrks.XXXXXX); chmod 600 "$TMP"; printf '%s\n' "
 if [ "${1:-}" = "--fingerprint" ]; then
   [ -e "$KEY_FILE" ] || { echo "!! 还没有 $KEY_FILE" >&2; exit 1; }
   echo "复核 $KEY_FILE（alias=$ALIAS）"
-  to_passfile "$(ask_once 密钥口令)"
+  read_pass P "  密钥口令: "
+  to_passfile "$P"
   "$KT" -list -v -keystore "$KEY_FILE" -alias "$ALIAS" -storepass:file "$TMP" 2>&1 \
     | grep -iE "SHA256|SignatureAlgorithm|Valid from" | head -4
   echo "↑ 把这行 SHA256 抄进发布说明；以后每版都对一次，就不会出现"
@@ -55,9 +66,9 @@ fi
 mkdir -p "$KEY_DIR"
 echo "将生成：$KEY_FILE"
 echo "alias=$ALIAS 有效期=${VALID_DAYS} 天 DN=$DN"
-P1=$(ask_once 新口令); echo
+read_pass P1 "  新口令: "; echo
 [ -n "$P1" ] || { echo "!! 空口令不放行" >&2; exit 1; }
-P2=$(ask_once 再输一次); echo
+read_pass P2 "  再输一次: "; echo
 [ "$P1" = "$P2" ] || { echo "!! 两次不一致，什么都没生成" >&2; exit 1; }
 
 to_passfile "$P1"
@@ -71,7 +82,7 @@ echo "── 已生成 $KEY_FILE"
 cat <<EOF
 
 ── 打正式包时给构建用的四个环境变量（构建脚本只认这四个）：
-   export KEYSTORE_FILE=E:/dev/keys/omniring-release.jks   # 正斜杠的 Windows 路径，别用 /e/…
+   export KEYSTORE_FILE=$KEY_FILE   # 正斜杠的 Windows 路径，别用 /e/…
    export KEYSTORE_PASSWORD=…   export KEY_ALIAS=$ALIAS   export KEY_PASSWORD=…
    ./gradlew assembleRelease                              # 双声明那份（你自己的日常机）
    ./gradlew -Phzr.legacyOnly=true assembleRelease        # 只留老入口那份（发给酷友 / 上架）

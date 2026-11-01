@@ -92,7 +92,8 @@ release 的签名配置在没有 `KEYSTORE_FILE` 环境变量时**回落到 `~/.
 
 **正式密钥由 `bash tools/make_release_key.sh` 生成，必须由发布人本人跑**（口令只从终端静默读入，
 不落任何文件、不进历史；密钥默认放在仓库外的 `E:/dev/keys`）。这把钥匙一旦用于公开版本就永远不能换，
-所以要在第一次对外发布之前定下来。
+所以要在第一次对外发布之前定下来。**手把手教程与兜底办法见 [docs/RELEASE-KEY-HOWTO.md](docs/RELEASE-KEY-HOWTO.md)**
+（含"用这把钥匙出包 + 用 apksigner 核对指纹"的整条命令，那条链已用一次性密钥实测跑通）。
 
 **要进 LSPosed 模块商店请看 `docs/LSPOSED-STORE.md`**：一手流程、我们差什么、
 以及"应用 ID 必须属于你"这条硬门槛的两条路怎么选（换包名 = 现有装机用户不能原地更新）。
