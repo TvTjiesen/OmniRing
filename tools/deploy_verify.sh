@@ -16,7 +16,7 @@ set -uo pipefail
 ADB=${ADB:-/e/dev/android-sdk/platform-tools/adb.exe}
 SER=${SER:?要带 -s 的设备串号，例如 SER=你的串号}
 APK=${APK:-E:/dev/hzr/app/build/outputs/apk/debug/app-debug.apk}
-PKG=xyz.nextalone.hyperzoomring
+PKG=io.github.tvtjiesen.omniring
 PREFS=/data/data/$PKG/shared_prefs/hyperzoomring_config.xml
 TMP_DEV=/data/local/tmp/hzr_prefs_restore.xml
 NO_REBOOT=0

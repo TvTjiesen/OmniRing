@@ -13,12 +13,20 @@ package xyz.nextalone.hyperzoomring.config
  * 解析失败最多退化成"这次没更新"，不能把异常送进 system_server。
  */
 object ConfigPayload {
-    /** 广播 action 与 extras 键名，两侧共用这一处定义 */
-    const val ACTION = "xyz.nextalone.hyperzoomring.action.CONFIG_PUSH"
+    /**
+     * 广播 action 与 extras 键名，两侧共用这一处定义。
+     *
+     * 为什么 action 名必须跟着 applicationId 走（而不是随便起个字符串）：
+     * App 推配置那条是**不带 setPackage** 的隐式广播，接收方靠 action 认领。
+     * 改包名之后如果 action 还是老包名，那么"老包名的模块"和"新包名的模块"
+     * 只要同时在设备上启用，就会各自收到对方那份配置 —— 两份模块互相盖配置，
+     * 现象是"改了设置时灵时不灵"，而且极难归因。action 跟着包名，两条链路天然隔离。
+     */
+    val ACTION = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.action.CONFIG_PUSH"
     const val EXTRA_PAYLOAD = "cfg"
 
     /** 钩子开机后来要配置：App 侧收到就回推一份 */
-    const val ACTION_REQUEST = "xyz.nextalone.hyperzoomring.action.CONFIG_REQUEST"
+    val ACTION_REQUEST = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.action.CONFIG_REQUEST"
 
     /**
      * 沉浸态（设置页那颗放大居中的表冠）的"借一段静默"信号：
@@ -30,7 +38,7 @@ object ConfigPayload {
      * 会被沉浸态当成点击，于是"一转就退出"。App 用租约方式续期（1 秒一次、3 秒到期），
      * 这样即使关闭时那条广播丢了，最多 3 秒后表冠也自动恢复。
      */
-    const val ACTION_STAGE = "xyz.nextalone.hyperzoomring.action.STAGE"
+    val ACTION_STAGE = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.action.STAGE"
     const val EXTRA_STAGE_UNTIL = "stage_until"
 
     /**
@@ -42,11 +50,20 @@ object ConfigPayload {
      * pointerId=0 的手指，他会被当成第二根手指被列表忽略。
      * 规则很简单：**手在屏上时用户赢**，这段时间表冠不注入手指。
      */
-    const val ACTION_TOUCH = "xyz.nextalone.hyperzoomring.action.TOUCH_LEASE"
+    val ACTION_TOUCH = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.action.TOUCH_LEASE"
     const val EXTRA_TOUCH_UNTIL = "touch_until"
 
-    /** 签名级权限：只有与本应用同签名的进程能推配置，别的 app 伪造不了 */
-    const val PERMISSION = "xyz.nextalone.hyperzoomring.permission.PUSH_CONFIG"
+    /**
+     * 签名级权限：只有与本应用同签名的进程能推配置，别的 app 伪造不了。
+     *
+     * 权限名同样跟着 applicationId 走，但**这条的理由和 action 那条不一样**：
+     * 权限名在设备上是一个全局唯一的注册项，谁先声明算谁的。
+     * 如果新旧两个包都声明同名 signature 权限而签名不同，必有一个装不上；
+     * 更糟的是"声明了权限的那一方"改了签名之后，另一方会被静默拒绝推送。
+     * 真正的字面量还留在 AndroidManifest 里，但那里用 `${applicationId}` 占位符，
+     * 由构建自己展开 —— 见单测 `权限与 action 名都从 applicationId 派生`。
+     */
+    val PERMISSION = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.permission.PUSH_CONFIG"
 
     private const val SEP = '\t'
 

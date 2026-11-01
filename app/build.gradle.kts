@@ -9,14 +9,33 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "xyz.nextalone.hyperzoomring"
+        /**
+         * 装机用的应用 ID（2026-10-31 从上游的 `xyz.nextalone.hyperzoomring` 改成自己的）。
+         *
+         * 为什么非改不可：LSPosed 模块仓库的提交规则是"**应用 ID 必须属于你**"——
+         * 要么你能证明控制那个域名（根域加 TXT `lsposed-modules-repo-verification=<github user>`），
+         * 要么用 `io.github.<用户名>.<模块名>` 这条免域名通道；官方还说要开始检查
+         * "仓库包名与发布的 APK 不符"。`xyz.nextalone.*` 是上游作者的域名族
+         * （他在架上的另一个模块就叫 `ltd.nextalone.pkginstallerplus`），我们借用不了。
+         * 判据与流程见 docs/LSPOSED-STORE.md。
+         *
+         * 代价说清楚：改 ID = 新 App。老包不会被覆盖安装，两个包同时启用会各自抓一次环，
+         * 所以迁移必须"先卸载老的再装新的"，而卸载会带走 LSPosed 的模块记录、作用域
+         * 和那份配置。App 首页对还装着老包的人有一条明确提示（HomeScreen 的 legacy 那条）。
+         *
+         * `namespace` 保持 `xyz.nextalone.hyperzoomring` 不动：源码的 package/import、
+         * R 类、BuildConfig、KSP 生成的入口类名全都不受影响 —— 换的只是装机身份。
+         * 代码里所有以包名为主键的东西（广播 action、签名级权限名、setPackage、
+         * 已加载 APK 的过滤）一律从 BuildConfig.APPLICATION_ID 派生，别再写字面量。
+         */
+        applicationId = "io.github.tvtjiesen.omniring"
         minSdk = 35
         targetSdk = 35
         // 装机验收已经跑了十几轮，还有一堆已知问题没收敛 —— 按他的要求版本号要动起来并以 beta 结尾。
         // 口径：versionCode = 第几轮装机（每次交付 +1），versionName 跟着轮次走高、
         // 始终以 -beta 结尾（这是测试项目，他明确要求不要停在 1.0.0）。
-        versionCode = 49
-        versionName = "1.39.0-beta"
+        versionCode = 50
+        versionName = "1.40.0-beta"
     }
 
     signingConfigs {

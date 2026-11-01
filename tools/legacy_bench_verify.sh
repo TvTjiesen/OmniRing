@@ -15,7 +15,7 @@ SER=${SER:-emulator-5554}
 EMU=${EMU:-/e/dev/android-sdk/emulator/emulator.exe}
 export ANDROID_AVD_HOME=${ANDROID_AVD_HOME:-E:/dev/avd_home}
 APK=${APK:-E:/dev/hzr/build/omniring-1.39.0-legacy.apk}
-PKG=xyz.nextalone.hyperzoomring
+PKG=io.github.tvtjiesen.omniring
 # 期望的探针戳：从源码里读，不写死，免得下次改 cfg 忘了同步这里
 WANT=$(grep -o 'BUILD_TAG = "[^"]*"' E:/dev/hzr/app/src/main/kotlin/xyz/nextalone/hyperzoomring/hook/DebugProbe.kt | sed 's/.*"\(.*\)"/\1/')
 [ -n "$WANT" ] || { echo "!! 读不出 BUILD_TAG"; exit 1; }

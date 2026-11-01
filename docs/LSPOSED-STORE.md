@@ -1,10 +1,12 @@
 # 上架 LSPosed 模块商店（Xposed-Modules-Repo）· 现状、门槛与做法
 
-> 结论先说：**商店这条路的门槛不是审核质量，而是"包名归谁"**。
-> 我们现在的应用 ID 是 `xyz.nextalone.hyperzoomring` —— 这是**上游作者的域名反写**，
-> 按官方规则我们既证明不了对 `nextalone.xyz` 的控制权，也不该用它去申请。
-> 所以「上架」真正要做的是一个决定：**换不换包名**（换 = 现有装机用户不能原地更新）。
-> 其余都是体力活，我已经把可复制的文案准备好了。
+> **决定已下并执行（2026-10-31，cfg43 / 1.40.0-beta）**：业主选择进商店，所以应用 ID 已经
+> 从上游的 `xyz.nextalone.hyperzoomring` 改成 **`io.github.tvtjiesen.omniring`**（商店的免域名通道
+> `io.github.<用户名>.<模块名>`）。代码侧所有以包名为主键的东西改为从 `BuildConfig.APPLICATION_ID`
+> 派生，并有单测钉住（`ConfigPayloadTest`、`LegacyPackageTest`）。
+> 剩下的门槛只有一个：**正式签名密钥**（`tools/make_release_key.sh`，只能发布人本人跑）
+> 和**老包迁移**（两个 ID 不能互相覆盖，App 首页已挂警示）。
+> 下面的门槛分析保留着，是为了让"为什么要改"这件事以后还能查到人。
 
 ## 1. 官方流程（逐字来自仓库 README，不是转述）
 
@@ -52,40 +54,46 @@
 | GPL-3.0 义务 | ✅ | 源码仓库已公开（`TvTjiesen/OmniRing`），`MODIFICATIONS.md` 是 §5a 要求的显著声明；`LICENSE` 保持 GPL-3.0 |
 | 上传哪一份 APK | ◐ 待定 | 建议**上架那份用 legacy-only 包**（`-Phzr.legacyOnly=true`）：老 LSPosed 撞上双声明会一条都不加载（`HYPEROS3-SELFCHECK.md` §6 实测），商店用户里一定有人是老版本框架，"能加载 + 一条废弃警告" 比 "界面一切正常但完全失灵" 好得多。要发双声明那份也行，但必须在说明里写清 LSPosed 需 ≥2.2.x |
 | SUMMARY / README / 图标 | ◐ 待写 | 首页只露 SUMMARY 一行；图标来自 APK 自己的启动图标（我们是自适应 XML，没有 512px PNG）—— 上架前建议补一张，效果差别很大 |
-| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（例如 `49-1.39.0`），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
+| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（我们现在是 `50-1.40.0`），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
 | 商店仓库存不放源码 | ✅ | README 明说不要往那个仓库传源码 —— 我们照常把源码放在自己的仓库 |
 
-## 3. 包名这件事，两条路怎么挑
+## 3. 包名：两条路怎么挑，以及最后走了哪条
 
-**A. 沿用 `xyz.nextalone.hyperzoomring`，不上架**
-- 好处：已装机的人（他自己 + 酷友）永远能原地 `install -r` 覆盖，LSPosed 作用域、配置、
-  `per_app_configured_packages` 全都不用重来；我们这套"心跳/探针/快照"验证链一次都不用改。
-- 代价：只在 GitHub Release + 酷安 传播，管理器里搜不到。
+**A. 沿用 `xyz.nextalone.hyperzoomring`，不上架** —— 已装机的人能一直原地覆盖，作用域与配置不动；
+代价是管理器里搜不到。
+**B. 改 `io.github.tvtjiesen.omniring`，走商店** —— 商店那条硬规则过得去；
+代价是老包不会被覆盖，两边并存会各自抓一次环，必须"先卸老包再装新包"，
+而卸载会带走 LSPosed 的模块记录、作用域勾选和那份手势/场景配置。
 
-**B. 改 `io.github.tvtjiesen.omniring`，走商店**
-- 代码上只有 **7 处**真正绑死应用 ID（其余 380 多处都是 Kotlin 的 `package` 声明，跟安装包名无关）：
-  - `app/build.gradle.kts:12`：`applicationId = ...`（**`namespace` 不用改**，源码目录和包声明一个字不动）
-  - `util/ModulePath.kt:14` `const val PKG`（注意：改成 `BuildConfig.APPLICATION_ID` 就不再是 `const`，
-    这一处要连着看调用方；顺手把下面两处也换成同一个来源，以后不可能漂移）
-  - `hook/InputInterceptorHook.kt:324` 与 `hook/SensorRingDriver.kt:353` 的 `setPackage("…")`
-  - `config/ConfigPayload.kt:49` 的签名级权限名 `…permission.PUSH_CONFIG`，
-    和 `AndroidManifest.xml:9-12` 的 `<permission>` / `<uses-permission>` 两行
-    —— **这一组不改会有真冲突**：权限名是设备全局的，如果哪天有用户同时装着上游
-    `xyz.nextalone.hyperzoomring` 和我们的新包，两个 App 用不同签名声明同名 signature 权限，
-    必有一个装不上（这也是"顺手把权限名跟着包名走"的理由，不只是整洁）
-  - 作用域默认勾选、`ScopeReload.installedPaths` 的过滤都是按包名走的，改完必须重新跑一遍
-    `deploy_verify.sh`（现在的闸门会自己把 `build=` 戳和 `module_enabled` 都验掉，
-    不用信我说的"应该没问题"）
-- 用户侧代价（这是真正的决定点）：新包名 = **新 App**。老包不会被覆盖，两边并存会同时抓环
-  （两套模块、两条注入路径），所以必须卸载老包 → LSPosed 模块记录、作用域勾选、
-  他调好的手势映射和场景配置**全部清零重设**。他自己的日常机也一样。
-- 缓解做法：商店条目发出去之后，在 App 里加一次性提示"检测到旧包名 `xyz.nextalone…` 仍在安装，
-  请先卸载再启用新版"，并把迁移清单写进发布说明。
+**2026-10-31 业主选 B，已执行完（cfg43 / 1.40.0-beta）。** 执行记录：
 
-**我的推荐：先 A 不动包名，把正式版签名和商店文案都备好；等 HyperOS 3 那轮回执回来、
-参数收敛成 1.x 正式版之后再改 B。** 理由很直白：现在换包名等于在还没收敛的版本上
-再叠一层"所有人重装"的成本，而商店条目本身不会因为我们晚两周提交而少用户；
-反过来说，签名密钥必须现在就定 —— 那条是"以后永远不能变"的东西，越早定越便宜。
+- 真实字面量是 **11 处**（我最初估的 7 处偏少，因为只数了引号恰好包住包名的那些；
+  广播 action、签名级权限名都是"包名嵌在长字符串里"，第一遍没被抓到）。
+  逐类清掉的方式是**取消字面量、改为派生**，而不是逐处替换字符串：
+  - `app/build.gradle.kts`：`applicationId` 改新值；**`namespace` 保持 `xyz.nextalone.hyperzoomring`**
+    （源码目录、`package`/`import`、R 类、KSP 生成的入口类名一个字不动，装机身份才变）。
+  - `util/ModulePath.kt`：`const val PKG` → `val PKG = BuildConfig.APPLICATION_ID`
+    （不再是 const，调用方都是运行时表达式，编译通过即安全）。
+  - `config/ConfigPayload.kt`：4 条 action + 1 条权限名全部 `"${ModulePath.PKG}…"`。
+  - `hook/InputInterceptorHook.kt`：`ACTION_ZOOM_RING_EVENT` 派生化 + `setPackage(...)` 用 `ModulePath.PKG`。
+  - `hook/SensorRingDriver.kt`：`setPackage(...)` 同上。
+  - `AndroidManifest.xml`：两行改成 `${applicationId}.permission.PUSH_CONFIG`（AGP 内建占位符，
+    已用合并后的清单核对：`io.github.tvtjiesen.omniring.permission.PUSH_CONFIG` 出现两次）。
+  - `tools/deploy_verify.sh`、`tools/legacy_bench_verify.sh`、`build/deliver.sh` 的 `PKG=`/`P=` 同步。
+- 为什么 action 和权限名必须跟着包名（不只是整洁）：
+  ① 权限名在设备上是全局注册项，新旧两包用不同签名声明同名 signature 权限会互斥，必有一个装不上；
+  ② 配置推送那条是**不带 setPackage 的隐式广播**，action 同名时新旧两个模块会各自收对方一份配置，
+  症状就是"改了设置时灵时不灵"；③ 环事件广播同名会让界面收到两份事件。
+- 锁：`ConfigPayloadTest.广播与权限名都从 applicationId 派生`（含"ID 必须以 `io.github.` 开头"这条
+  商店规则）+ `LegacyPackageTest`（旧 ID 与当前 ID 必须不同，防止有人改回去把警示变成永久挂显示）。
+- 迁移警示已进界面：`util/LegacyPackage.kt` + 首页那张卡，四种语言都有文案。
+  bench 上实测：老包装着时 `installed=true why=installed → 警示=true` 且列表整体位移
+  （卸载老包后同一操作路径 `false`）；文案本身的可读性要等他手机插上再用截图确认一次。
+- 还没做的验证（说明白，不含糊）：**改完包名之后还没在任何设备上跑过"模块真加载 + 配置真推达"**。
+  bench 那台 LSPosed 1.11.0 的启用要在管理器界面里点，而那个界面在新版本上是 Compose，
+  `uiautomator` 抓不到可读节点，我停在"不靠肉眼猜坐标"这条规矩上；
+  他手机现在没插回来。所以下一次装机必须走 `tools/deploy_verify.sh` 的全套闸门
+  （`build=cfg43` 回显 + `module_enabled` + 心跳重建），三条齐了才能说这次改名是端到端通的。
 
 ## 4. 真要提交时的操作顺序（B 路，一次做完）
 
@@ -102,7 +110,7 @@
    → 机器人建仓库并邀请你为 maintainer（**Description/Title/Home Page 只能在浏览器里改，
    README 明说 API 改不了**）。
 5. 在新仓库填 `SUMMARY`（一行）与 `README.md`（详细介绍），**不要**传源码。
-6. 建 GitHub Release：Tag `49-1.39.0`，Title `1.39.0`，正文=changelog，
+6. 建 GitHub Release：Tag `50-1.40.0`，Title `1.40.0`，正文=changelog，
    **同一个 release 里把 APK 附件一起传上去**，Home Page 指回源码仓库或支持群。
 7. 等 5~60 分钟；在 LSPosed 管理器 → 商店 里按包名搜一次，确认图标/SUMMARY/版本号都对，
    并且**在测试机上验一次"从商店点更新"能不能装上**（商店→安装走的也是签名，
@@ -114,7 +122,7 @@
   - `把小米大师变焦环变成通用旋钮：滚动、音量、亮度、视频进度，全在环上`
   - `Turn the Xiaomi Master Zoom Ring into a universal dial: scroll, volume, brightness, video seek`
 - issue 标题：`[submission] io.github.tvtjiesen.omniring`
-- Release Tag / Title：`49-1.39.0` / `1.39.0`
+- Release Tag / Title：`50-1.40.0` / `1.40.0`
 - README.md 骨架：直接用源码仓库 README 的"它是什么 / 怎么装 / 需要 root + LSPosed /
   作用域要勾哪些 / 支持的系统（HyperOS 3 待回执、HyperOS 4 已实测）/ 已知问题 /
   免责声明（改系统输入路径，刷机风险自担）/ 上游致谢 NextAlone/HyperZoomRing + GPL-3.0"。

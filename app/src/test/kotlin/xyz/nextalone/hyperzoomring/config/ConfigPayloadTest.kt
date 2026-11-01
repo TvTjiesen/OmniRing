@@ -108,4 +108,31 @@ class MemoryStoreTest {
         assertEquals("scroll_down", s.getString("gesture_CW_SLOW_action_id", null))
         assertEquals(2, s.getInt("theme_mode", 0))
     }
+
+    /**
+     * 改包名的那条锁（2026-10-31，为了进 LSPosed 商店把 applicationId 换成
+     * `io.github.tvtjiesen.omniring`）。
+     *
+     * 为什么这条测试值得存在：以包名为主键的东西一共四类 —— 广播 action、
+     * 签名级权限名、`setPackage()`、已加载 APK 的路径过滤。它们以前是 11 处字面量，
+     * 改 ID 时漏掉任何一处都**不会编译报错**，只会表现为"改了设置没反应"
+     * （权限名对不上 → 推不进 system_server）或者"界面数字翻倍"
+     * （新旧两个模块收同一条 action）。这类故障在真机上极难归因，所以先把
+     * "必须从 applicationId 派生"钉成断言。
+     */
+    @Test
+    fun `广播与权限名都从 applicationId 派生`() {
+        val app = xyz.nextalone.hyperzoomring.BuildConfig.APPLICATION_ID
+        assertEquals("模块侧的包名必须就是安装包名", app, xyz.nextalone.hyperzoomring.util.ModulePath.PKG)
+        assertEquals("$app.action.CONFIG_PUSH", ConfigPayload.ACTION)
+        assertEquals("$app.action.CONFIG_REQUEST", ConfigPayload.ACTION_REQUEST)
+        assertEquals("$app.action.STAGE", ConfigPayload.ACTION_STAGE)
+        assertEquals("$app.action.TOUCH_LEASE", ConfigPayload.ACTION_TOUCH)
+        assertEquals("$app.permission.PUSH_CONFIG", ConfigPayload.PERMISSION)
+        // 商店规则：应用 ID 必须属于提交者。这条一旦被人改回上游域名族，判据直接红。
+        org.junit.Assert.assertTrue(
+            "应用 ID 必须是 io.github.<用户名>.*（或能证明域名的自有前缀），不然商店那条提交不过",
+            app.startsWith("io.github.")
+        )
+    }
 }

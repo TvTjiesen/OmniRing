@@ -3,7 +3,14 @@
 你手上的 **小米 17 Ultra（含徕卡版）如果还停在澎湃 OS 3（Android 16）**，麻烦帮我测一轮。
 这个版本在 OS4 上已经调好了，OS3 没有机器可测，所以需要你这几分钟。**只需要拍照/滚动几下 + 截两张图。**
 
-先装：**这一轮请装 `OmniRing-1.39.0-beta-legacy.apk`**（文件名里带 legacy 的那一份）。
+先装：**这一轮请装 `OmniRing-1.40.0-beta-legacy.apk`**（文件名里带 legacy 的那一份）。
+
+**如果你之前装过我这个环（1.39 及更早）**：这一版换了包名 —— 老的叫
+`xyz.nextalone.hyperzoomring`，新的叫 `io.github.tvtjiesen.omniring`，是两个独立的应用，
+互相覆盖不了。**请先在 LSPosed 里把旧模块关掉、再把旧版卸载**，然后才装新的。
+两个都开着的话变焦环会被抓两次（滚一下走两下、动作触发两遍），那不是 bug，是桌上有两份。
+新版首页在这种情况下也会主动挂一条警示告诉你这件事。
+
 原因说清楚：包里原本同时声明了两条模块入口，新一点的 LSPosed（2.2.x）认这个组合，
 但**老版本 LSPosed 撞上双声明会一条都不加载** —— 模块在管理器里显示"已启用"，实际什么都不干。
 我手上没有 OS3 的机器，也不知道你手机上那份 LSPosed 是哪版，所以给你的这份只留老的那条入口，
@@ -53,7 +60,7 @@ adb logcat -d -s HyperZoomRing > hzr.txt
 
 ```
 entry=legacy installed=0  legacyHooked=filterInputEvent,injectInputEvent,launchCamera
-runtime=started=true ctx=ok cfg=ok recv=ok …  build=cfg42
+runtime=started=true ctx=ok cfg=ok recv=ok …  build=cfg43
 ```
 
 看到 `entry=legacy` 就对了（这份包只留老入口）。`installed=0` **不是**故障，那是另一条入口的计数器；

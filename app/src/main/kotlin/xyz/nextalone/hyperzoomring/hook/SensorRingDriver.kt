@@ -350,7 +350,7 @@ object SensorRingDriver {
         runCatching {
             context.sendBroadcast(
                 android.content.Intent(InputInterceptorHook.ACTION_ZOOM_RING_EVENT).apply {
-                    setPackage("xyz.nextalone.hyperzoomring")
+                    setPackage(xyz.nextalone.hyperzoomring.util.ModulePath.PKG)
                     putExtra(InputInterceptorHook.EXTRA_TIMESTAMP, now)
                     putExtra(InputInterceptorHook.EXTRA_VALUE, kotlin.math.abs(units).toInt())
                     putExtra(InputInterceptorHook.EXTRA_DIRECTION, model.dirSign)

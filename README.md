@@ -5,7 +5,13 @@
 
 > 本仓库 fork 自 [NextAlone/HyperZoomRing](https://github.com/NextAlone/HyperZoomRing)（GPL-3.0）。
 > 二改内容、原因与逐文件改动清单见 **[MODIFICATIONS.md](MODIFICATIONS.md)**；上游原文保留在 [README.upstream.md](README.upstream.md)。
-> 包名沿用 `xyz.nextalone.hyperzoomring`，这样已装机的设备和 LSPosed 作用域都不用重来。
+> **应用 ID（2026-10-31 起）**：`io.github.tvtjiesen.omniring`。
+> 上游原 ID 是 `xyz.nextalone.hyperzoomring`，1.39 及之前的装机用的都是它 ——
+> 换 ID 是为了进 LSPosed 模块仓库（那里的硬规则是"应用 ID 必须属于提交者"，见
+> [docs/LSPOSED-STORE.md](docs/LSPOSED-STORE.md)）。**两个 ID 是两个独立 App，不能互相覆盖安装**，
+> 从旧版迁移要先把旧包在 LSPosed 里关掉并卸载（作用域和那份配置会丢，需重设），
+> App 首页在这种情况下会主动挂一条警示。Kotlin 侧的包声明（`namespace`）仍是
+> `xyz.nextalone.hyperzoomring`，没有变，也不需要变。
 
 ![万能变焦环 · OmniRing](brand/poster_final.png)
 

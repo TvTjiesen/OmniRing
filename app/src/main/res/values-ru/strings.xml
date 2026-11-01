@@ -94,6 +94,8 @@
     <string name="home_enable">Включить кольцо зума</string>
     <string name="home_enable_on">Жесты кольца активны</string>
     <string name="home_enable_off">Жесты кольца отключены</string>
+    <string name="home_legacy_title">Старая версия всё ещё установлена</string>
+    <string name="home_legacy_body">Это приложение сменило имя пакета (io.github.tvtjiesen.omniring), поэтому оно и xyz.nextalone.hyperzoomring — два разных приложения. Если оба включены в LSPosed, кольцо перехватывается дважды: один поворот прокручивает дважды, действия срабатывают дважды, состояния перекрывают друг друга. Отключите и удалите старую версию, оставьте только эту.</string>
     <string name="home_mode">Режим</string>
     <string name="home_dispatch">Способ распределения</string>
     <string name="home_camera">Камера</string>

@@ -95,6 +95,8 @@
     <string name="home_enable">啟用變焦環</string>
     <string name="home_enable_on">變焦環手勢已啟用</string>
     <string name="home_enable_off">變焦環手勢已禁用</string>
+    <string name="home_legacy_title">裝置上還裝著舊版本</string>
+    <string name="home_legacy_body">這個 App 換了套件名稱（io.github.tvtjiesen.omniring），和舊版 xyz.nextalone.hyperzoomring 是兩個獨立的應用。兩個都在 LSPosed 裡啟用時，變焦環會被抓兩次：轉一下滾兩下、動作觸發兩遍、狀態互相蓋掉。請先在 LSPosed 裡關掉舊模組並解除安裝舊版，只留這一個。</string>
     <string name="home_mode">模式選擇</string>
     <string name="home_dispatch">分發模式</string>
     <string name="home_camera">相機設定</string>

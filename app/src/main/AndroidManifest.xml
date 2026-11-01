@@ -5,11 +5,14 @@
 
     <!-- 配置推送通道（见 ConfigPayload / ConfigSync）：
          system_server 读不到 App 的私有 prefs 文件，配置只能由 App 主动推。
-         signature 级 = 只有与本应用同签名的进程推得进来，别的 app 伪造不了。 -->
+         signature 级 = 只有与本应用同签名的进程推得进来，别的 app 伪造不了。
+         权限名用 ${applicationId} 占位符（AGP 内建，构建时自己展开），
+         和 Kotlin 侧 ConfigPayload.PERMISSION 是同一个来源 —— 改包名不会再出现
+         "代码里的权限名和清单里声明的差一个前缀"这种推不进去的故障。 -->
     <permission
-        android:name="xyz.nextalone.hyperzoomring.permission.PUSH_CONFIG"
+        android:name="${applicationId}.permission.PUSH_CONFIG"
         android:protectionLevel="signature" />
-    <uses-permission android:name="xyz.nextalone.hyperzoomring.permission.PUSH_CONFIG" />
+    <uses-permission android:name="${applicationId}.permission.PUSH_CONFIG" />
 
     <application
         android:icon="@mipmap/ic_launcher"

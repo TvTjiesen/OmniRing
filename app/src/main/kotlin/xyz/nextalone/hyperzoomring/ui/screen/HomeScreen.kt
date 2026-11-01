@@ -1,8 +1,12 @@
 package xyz.nextalone.hyperzoomring.ui.screen
 import xyz.nextalone.hyperzoomring.ui.label
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -10,6 +14,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 import xyz.nextalone.hyperzoomring.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -18,6 +29,7 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.config.DispatchMode
 import xyz.nextalone.hyperzoomring.ui.Screen
+import xyz.nextalone.hyperzoomring.util.LegacyPackage
 
 /**
  * 首页：模块总开关、分发模式、相机覆盖、进度环三件套、速度阈值。
@@ -39,6 +51,11 @@ fun HomeScreen(
     var seekHud by remember(refreshTrigger) { mutableStateOf(config.seekHudEnabled) }
     var seekMsPerUnit by remember(refreshTrigger) { mutableStateOf(config.seekMsPerUnit.toFloat()) }
     var speedThreshold by remember(refreshTrigger) { mutableStateOf(config.speedThreshold.toFloat()) }
+    // 老包名还在不在机器上（决定要不要挂那条"请先卸载旧版"）。查包搬到 IO，别卡首帧。
+    var legacyWarn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        legacyWarn = withContext(Dispatchers.IO) { LegacyPackage.shouldWarn(context) }
+    }
 
     Page(pagePadding = pagePadding, modifier = modifier) {
         // 第一屏第一张卡就是"到底生效了没有"：
@@ -49,6 +66,29 @@ fun HomeScreen(
                 refreshTrigger = refreshTrigger,
                 onClick = { onNavigate(Screen.Diagnostic) },
             )
+        }
+
+        if (legacyWarn) {
+            item {
+                Card {
+                    Column(
+                        modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 18.dp, bottom = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.home_legacy_title),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MiuixTheme.colorScheme.error,
+                        )
+                        Text(
+                            text = stringResource(R.string.home_legacy_body),
+                            fontSize = 14.sp,
+                            color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                        )
+                    }
+                }
+            }
         }
 
         item { SectionTitle(stringResource(R.string.home_module_state)) }

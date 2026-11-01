@@ -22,7 +22,12 @@ import xyz.nextalone.hyperzoomring.util.Heartbeat
 @Suppress("DEPRECATION")
 object InputInterceptorHook {
     private const val TAG = "HyperZoomRing"
-    const val ACTION_ZOOM_RING_EVENT = "xyz.nextalone.hyperzoomring.ZOOM_RING_EVENT"
+    /**
+     * 环事件广播给界面的那条 action —— 跟着 applicationId 派生，不要写回字面量。
+     * 理由和 ConfigPayload.ACTION 一样：老包名的模块和新包名的模块同时启用时，
+     * action 同名会让界面同时收到两份事件（诊断页数字翻倍、"改了没反应"那种假象）。
+     */
+    val ACTION_ZOOM_RING_EVENT = "${xyz.nextalone.hyperzoomring.util.ModulePath.PKG}.ZOOM_RING_EVENT"
     const val EXTRA_TIMESTAMP = "timestamp"
     const val EXTRA_VALUE = "value"
     const val EXTRA_DIRECTION = "direction"
@@ -321,7 +326,7 @@ object InputInterceptorHook {
         try {
             val ctx = context
             val intent = Intent(ACTION_ZOOM_RING_EVENT).apply {
-                setPackage("xyz.nextalone.hyperzoomring")
+                setPackage(xyz.nextalone.hyperzoomring.util.ModulePath.PKG)
                 putExtra(EXTRA_TIMESTAMP, zoomEvent.timestampMs)
                 putExtra(EXTRA_VALUE, scrollValue)
                 putExtra(EXTRA_DIRECTION, direction)

@@ -94,6 +94,8 @@
     <string name="home_enable">Enable zoom ring</string>
     <string name="home_enable_on">Zoom ring gestures are active</string>
     <string name="home_enable_off">Zoom ring gestures are disabled</string>
+    <string name="home_legacy_title">The old version is still installed</string>
+    <string name="home_legacy_body">This app changed its package name (io.github.tvtjiesen.omniring), so it and xyz.nextalone.hyperzoomring are two separate apps. If both are enabled in LSPosed the ring is picked up twice: one turn scrolls twice, actions fire twice, and the two versions overwrite each other. Disable and uninstall the old one, keep only this.</string>
     <string name="home_mode">Dispatch</string>
     <string name="home_dispatch">Mode</string>
     <string name="home_camera">Camera</string>

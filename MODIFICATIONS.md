@@ -4,8 +4,11 @@
 改动日期为 **2026-10-11 ~ 2026-10-12**，作者：**TvTjiesen**。原始版本见 `README.upstream.md`，
 完整原始许可见 `LICENSE`（GPL-3.0，保持不变）。
 
-二改版在界面上的名字是 **万能变焦环 / OmniRing**（含新启动图标）；包名沿用上游
-`xyz.nextalone.hyperzoomring` 不变，这样已装机的用户和 LSPosed 作用域不用重来。
+二改版在界面上的名字是 **万能变焦环 / OmniRing**（含新启动图标）。
+应用 ID 在 **2026-10-31（1.40.0-beta / cfg43）从上游的 `xyz.nextalone.hyperzoomring` 改为
+`io.github.tvtjiesen.omniring`**（改动原因与迁移代价见 `docs/LSPOSED-STORE.md` 和本文件第十二批）；
+Kotlin 的 `namespace`、源码目录与上游原文件的包声明保持 `xyz.nextalone.*` 不变 ——
+改的只是"装机身份"，不是"代码署名"。上游署名仍在本文件、`README.md` 与 App 内「设置 → 致谢」。
 
 代码占比（`tools/code_share.py`，2026-10-12 复算，76 个 .kt / 9493 行）：
 本 fork 新增 32%、移植 Miuix 液态玻璃 15%、上游文件被重写 13%、上游原样保留 38%。
@@ -216,3 +219,37 @@ mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上�
 
 版本号：`versionCode 49` / `versionName 1.39.0-beta` / `DebugProbe.BUILD_TAG = cfg42`。
 测试：34 类 / 214 条断言 / 0 失败（上一轮 202，本轮 +12 条含 RingEase 默认值锁与启动动画 8 条）。
+
+---
+
+## 第十二批（2026-11-01）· 应用 ID 换成自己的（进 LSPosed 商店的前提）+ 旧包迁移警示
+
+业主决定上架 LSPosed 模块仓库。那里的硬规则不是审核质量而是**"应用 ID 必须属于提交者"**：
+要么证明你控制那个域名（根域 TXT `lsposed-modules-repo-verification=<github user>`），
+要么用免域名通道 `io.github.<用户名>.<模块名>`。`xyz.nextalone.*` 是上游作者的域名族
+（他在架上的另一模块叫 `ltd.nextalone.pkginstallerplus`），借不了。所以这一批改的就是这件事。
+
+| 变更 | 文件 | 为什么（都有实测/官方原文支撑） |
+| --- | --- | --- |
+| `applicationId` → `io.github.tvtjiesen.omniring` | `app/build.gradle.kts` | 商店那条规则。**`namespace` 保持 `xyz.nextalone.hyperzoomring`**：换的是装机身份，不是代码署名，源码目录/`package`/R 类/KSP 生成的入口类名全部不动 |
+| 包名相关字符串全部改为**派生**，不再逐处替换 | `util/ModulePath.kt`、`config/ConfigPayload.kt`、`hook/InputInterceptorHook.kt`、`hook/SensorRingDriver.kt`、`AndroidManifest.xml` | 真实字面量是 **11 处**（我一开始数成 7 处，漏的是"包名嵌在长字符串里"的 4 条广播 action 和权限名 —— 第一版 grep 只匹配引号恰好包住包名的那些）。清单里用 AGP 内建 `${applicationId}` 占位符，合并后的清单已核对展开成 `io.github.tvtjiesen.omniring.permission.PUSH_CONFIG`（两次：`<permission>` + `<uses-permission>`） |
+| 广播 action 与签名级权限名跟着包名走（不只是整洁） | 同上 | ① 配置推送是**不带 setPackage 的隐式广播**，新旧两包 action 同名会各收对方一份配置 → "改了设置时灵时不灵"；② 权限名在设备上是全局注册项，两包用不同签名声明同名 signature 权限必有一个装不上；③ 环事件广播同名会让界面收到两份 |
+| 旧包迁移警示 | `util/LegacyPackage.kt`（新）、`ui/screen/HomeScreen.kt`、4 份 strings | 两个 ID 是两个独立 App，`install -r` 覆盖不到老包；两边都启用就是"桌上两份"，症状和我们刚修的双倍执行一模一样。查包走 IO（不卡首帧），查不到退化成"不提示"而不是吓唬人 |
+| 两条判据锁 | `ConfigPayloadTest`、`LegacyPackageTest`（新） | 前者钉"权限与 4 条 action 必须从 `BuildConfig.APPLICATION_ID` 派生"且 ID 必须 `io.github.` 开头；后者钉"旧 ID ≠ 当前 ID"（有人改回去的话警示会永久挂着）+ 三态判据 |
+| 装机/验收脚本同步 | `tools/deploy_verify.sh`、`tools/legacy_bench_verify.sh`、`build/deliver.sh` | 这些脚本查的是**装机身份**（`pm path`、`/data/data`、LSPosed db 的 `module_pkg_name`），不改就会一路查错包得到假阴性。`deliver.sh` 是 GBK 编码，用字节级替换只动 ASCII 那行，没整文件转码 |
+| 发布车道 | `tools/make_release_key.sh`（新）、`.gitignore` | 见第十一批的签名一节；`.gitignore` 补 `*.jks`/`keystore.properties`/`*passfile*` |
+
+已验证（PC 与虚拟机侧）：218 条断言 0 失败；`aapt2 dump badging` 两份 release 都是
+`package name='io.github.tvtjiesen.omniring' versionCode='50' versionName='1.40.0-beta'`；
+dex 里有 `cfg43`；legacy 那份仍只留 `assets/xposed_init` + `META-INF/yukihookapi_init`。
+警示卡在 bench_a15 上实测：老包装着 → `installed=true why=installed → 警示=true` 且列表整体位移；
+卸载老包 → `false`。（**这条我第一次量错了**：卡片在首屏之下，不滚就截图会得到"两张图完全相同"的
+假结论，是滚动之后才看出差异的。）
+
+还没验证（不含糊）：**改完包名后还没有在任何真机上跑过"模块真加载 + 配置真推达"**。
+你手机这一轮一直没插回来；bench 那台的 LSPosed 1.11.0 管理器是 Compose 界面，
+`uiautomator` 抓不到可读节点，我没有靠肉眼猜坐标去点它。插上后走 `tools/deploy_verify.sh`，
+三条证据（`build=cfg43` 回显 + `module_enabled` 为真 + 删掉心跳后它被重新写出来）齐了才算闭环。
+另外这次装机是**新包**：需要你在 LSPosed 里给它重新勾作用域（旧模块请关掉并卸载）。
+
+版本号：`versionCode 50` / `versionName 1.40.0-beta` / `DebugProbe.BUILD_TAG = cfg43`。

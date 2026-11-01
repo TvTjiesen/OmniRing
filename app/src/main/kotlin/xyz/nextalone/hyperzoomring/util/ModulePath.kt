@@ -11,7 +11,18 @@ import java.io.File
  */
 object ModulePath {
 
-    const val PKG = "xyz.nextalone.hyperzoomring"
+    /**
+     * 安装包名（applicationId）。**必须跟着构建走，不许再写字面量**：
+     * 广播的 action、签名级权限名、`setPackage()`、作用域过滤全都以它为主键，
+     * 手写一遍就有漏的一处（2026-10-31 为进 LSPosed 商店改 applicationId 时，
+     * 仓库里散落着 11 处字面量，靠人记是记不全的）。
+     *
+     * 注意它和 Kotlin 的 `package`/`namespace` 是两件事：包声明可以一直是
+     * `xyz.nextalone.hyperzoomring`，而 applicationId 已经改成
+     * `io.github.tvtjiesen.omniring`（商店要求"应用 ID 必须属于你"，
+     * 见 docs/LSPOSED-STORE.md）。这里取的是**装机用的那一个**。
+     */
+    val PKG = xyz.nextalone.hyperzoomring.BuildConfig.APPLICATION_ID
 
     fun apkPath(entry: Class<*>): String? {
         runCatching { entry.protectionDomain?.codeSource?.location?.path }
