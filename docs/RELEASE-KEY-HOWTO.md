@@ -20,7 +20,7 @@ V2 Signer: certificate SHA-256 digest: 717b08caca860b903dccaaa689e6d018761337b92
 
 ## 1A. 最简单的路：双击（不用终端，推荐）
 
-双击 **`E:\dev\hzr	ools\make_key.bat`**，会弹出一个**置顶**的小窗口
+双击 **`E:\dev\hzr\tools\make_key.bat`**，会弹出一个**置顶**的小窗口
 「OmniRing 正式签名密钥」，里面两个打码输入框：
 
 - 第一个框输口令（≥16 位，别用出现在聊天里的任何值），第二个框再输一遍，点「生成密钥」；
