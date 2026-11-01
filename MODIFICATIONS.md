@@ -253,3 +253,25 @@ dex 里有 `cfg43`；legacy 那份仍只留 `assets/xposed_init` + `META-INF/yuk
 另外这次装机是**新包**：需要你在 LSPosed 里给它重新勾作用域（旧模块请关掉并卸载）。
 
 版本号：`versionCode 50` / `versionName 1.40.0-beta` / `DebugProbe.BUILD_TAG = cfg43`。
+
+### 第十二批补充（同日，真机 14:19 抓到并修掉的一条：#46 的一条真根因）
+
+装机验收改名后的机器时发现：心跳里的签名是新的（`base.apk|48148492|…`），
+`hzr_loaded_apk` 却还停在上一版（`base.apk|47121321|…`）。判据链是闭合的、不用猜：
+`flush()` 里"解析签名"和"发布签名"在同一条 `signature.isEmpty()` 分支 ——
+心跳能带上新签名说明这一支**跑过、解析成功**，而键里是旧值，说明**同一次里的
+Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接受写，这条链路上见过同类失败），
+而它**一辈子只发一次、永不重试**。App 的"是否待重启"判的正是 `installed == loaded`，
+于是模块明明好了，首页还一直叫他去重启作用域。
+
+- 修法：`Heartbeat` 记住上次落过的值（`publishedSignature`），只要签名非空且和落过的不一样就重写；
+  纯判据抽成 `shouldPublish(current, lastPublished)`，`HeartbeatParseTest` 四条断言钉住
+  （含"已经落过就别每两秒写一次 XML"）。
+- 真机前后对照（就是这台 nezha，cfg44 装机 + 软重启后回读）：
+  `hzr_loaded_apk` 从 `47121321` 翻成 `48148492`；探针 `entry=modern102 installed=6 … build=cfg44`；
+  `recv` 从开机早期的 `NullPointerException` 变成 `ok`（注册是重试成功的，不是死锁）。
+- 同一轮还证明了改名后的链路在真机上通：新包（`io.github.tvtjiesen.omniring`）的配置
+  `hzr_cfg_state=1;14` 被模块吃到、`module_enabled true` 在快照里，
+  而且你刚才转环转出了 156 个样本、115 次成功分发（`CW_FAST/CCW_SLOW → scroll`）。
+
+版本号：`versionCode 50` / `versionName 1.40.0-beta` / `DebugProbe.BUILD_TAG = cfg44`。测试 219 条 0 失败。

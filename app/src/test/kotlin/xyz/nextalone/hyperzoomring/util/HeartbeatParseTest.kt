@@ -1,7 +1,9 @@
 package xyz.nextalone.hyperzoomring.util
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -48,5 +50,19 @@ class HeartbeatParseTest {
         assertNull(Heartbeat.parse(null))
         assertNull(Heartbeat.parse(""))
         assertNull(Heartbeat.parse("x;y;z"))
+    }
+
+    @Test
+    fun `已加载签名只要没落到键上就必须一直重试`() {
+        // 真机抓到的形状：模块加载的是新 APK（心跳里签名已是新的），
+        // 但 hzr_loaded_apk 还停在旧值 —— 因为发布只发生在"第一次解析出签名"那一拍，
+        // 那一拍的 Settings.Global 写失败了就永远不会再补写。判据 installed==loaded
+        // 于是长期停在"待重启"，等于把 #46 说成用户的使用问题。
+        val newSig = "base.apk|47646324|1793509028639"
+        val oldSig = "base.apk|47121321|1793448036170"
+        assertTrue(Heartbeat.shouldPublish(newSig, null))
+        assertTrue("和键上现值不一样 → 必须重写", Heartbeat.shouldPublish(newSig, oldSig))
+        assertFalse("已经落过了就别每两秒写一次 XML", Heartbeat.shouldPublish(newSig, newSig))
+        assertFalse("签名还没解析出来时不许把空串写进去", Heartbeat.shouldPublish("", oldSig))
     }
 }

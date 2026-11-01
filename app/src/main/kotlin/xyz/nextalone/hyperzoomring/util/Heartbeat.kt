@@ -91,6 +91,26 @@ object Heartbeat {
     }
 
     /**
+     * 上一次落到 `hzr_loaded_apk` 的值。
+     *
+     * 为什么必须重试（2026-11-01 真机抓到的，判据链是闭合的，不是猜的）：
+     * 原来 `flush()` 里"解析签名"和"发布签名"在同一条 `signature.isEmpty()` 分支里，
+     * 于是**一辈子只发一次**。真机现场是：新模块确实加载了新 dex（探针回显 `build=cfg43`、
+     * 心跳载荷里的签名是 `base.apk|47646324|…` = 新 APK），而 `hzr_loaded_apk` 还停在上一版的
+     * `base.apk|47121321|…`。心跳载荷能带上新签名，说明那条分支**跑过了、解析成功了**；
+     * 键里却是旧值，说明**同一次里的 Settings.Global 写没落地**（开机头几十秒
+     * SettingsProvider 还不接受写，这条链路上我们早就见过同类失败）——
+     * 而它再也不会重试。App 的"是否待重启"判的正是 `installed == loaded`，
+     * 结果模块明明好了，首页还一直叫他去重启作用域（#46"生效状态判定不稳定"的一条真根因）。
+     */
+    @Volatile
+    private var publishedSignature: String? = null
+
+    /** 纯判据：签名非空且和上次落过的不一样才写（SettingsProvider 写一次要动 XML，别每拍都写） */
+    fun shouldPublish(current: String, lastPublished: String?): Boolean =
+        current.isNotEmpty() && current != lastPublished
+
+    /**
      * 由 2 秒一次的探针节拍调用，把内存计数落到 Settings.Global。
      *
      * 签名在这里惰性补齐：原来那套做法是在 HookEntry 里反射 ActivityThread.systemMain()
@@ -104,11 +124,12 @@ object Heartbeat {
             val path = ModulePath.apkPath(Heartbeat::class.java)
                 ?: ScopeReload.installedPaths(context).firstOrNull { it.contains(ModulePath.PKG) }
             val sig = ScopeReload.signatureOf(path)
-            if (!sig.isNullOrEmpty()) {
-                signature = sig
-                runCatching { ScopeReload.publishLoadedSignature(context, sig) }
-                    .onFailure { Log.w(TAG, "publish loaded signature failed: ${it.message}") }
-            }
+            if (!sig.isNullOrEmpty()) signature = sig
+        }
+        if (shouldPublish(signature, publishedSignature)) {
+            publishedSignature = signature
+            runCatching { ScopeReload.publishLoadedSignature(context, signature) }
+                .onFailure { Log.w(TAG, "publish loaded signature failed: ${it.message}") }
         }
         val payload = listOf(
             signature,
