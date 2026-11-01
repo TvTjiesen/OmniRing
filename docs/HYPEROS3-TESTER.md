@@ -3,7 +3,9 @@
 你手上的 **小米 17 Ultra（含徕卡版）如果还停在澎湃 OS 3（Android 16）**，麻烦帮我测一轮。
 这个版本在 OS4 上已经调好了，OS3 没有机器可测，所以需要你这几分钟。**只需要拍照/滚动几下 + 截两张图。**
 
-先装：**这一轮请装 `OmniRing-1.40.0-beta-legacy.apk`**（文件名里带 legacy 的那一份）。
+先装：**这一轮请装 `OmniRing-1.40.0-beta-signed-legacy.apk`**（文件名里带 signed-legacy 的那一份）。
+
+注意这份是**正式签名**：如果他之前已经装过我给的 beta（那时是调试签名），两者不能互相覆盖安装，**必须先卸载旧的再装这份**，否则安装器会直接报签名冲突。
 
 **如果你之前装过我这个环（1.39 及更早）**：这一版换了包名 —— 老的叫
 `xyz.nextalone.hyperzoomring`，新的叫 `io.github.tvtjiesen.omniring`，是两个独立的应用，

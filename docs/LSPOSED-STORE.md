@@ -138,3 +138,64 @@
   所以我只能保证第 1 节那些是原文，不保证"图标必须 512×512"这类二手说法。
   真要提 issue 之前，我建议先在他们的 Telegram 群 `@LSPosed` 问一句当前元数据要求 ——
   这句话是二手信息，我把它和一手内容分开写着。
+
+## 7. 现在能直接抄走的那一页（2026-11-01，正式签名已生效）
+
+**签名身份（已定，以后不能换）**：证书 `CN=OmniRing, OU=TvTjiesen, O=TvTjiesen`
+指纹 SHA256 `22:2F:C2:90:A5:AD:E9:39:8B:01:00:E9:68:31:27:11:82:86:F5:E1:45:DE:C6:81:B5:7A:E9:89:19:45:BC:1B`
+
+**要上传的那一份**（只留传统入口，新老 LSPosed 都能加载）：
+`build/OmniRing-1.40.0-beta-signed-legacy.apk` · 4,720,515 B · md5 `d750e303ebc1a7d8c8e68de8eb4fb989`
+（自己日常机继续用 `OmniRing-1.40.0-beta-signed.apk`，双声明那份 · 4,720,852 B · md5 `dbd148d0e7bb5712641961d4dbaf79d6`）
+两份都已用 `apksigner` 回读核过签名 = 上面那行指纹，且 dex 里的构建戳都是 `cfg44`。
+
+**① 提交 issue**（仓库 `Xposed-Modules-Repo/submission`，标题一字不差）：
+
+```
+[submission] io.github.tvtjiesen.omniring
+```
+
+机器人会建仓库并邀请你当 maintainer。之后 Title / Description / Home Page 只能在浏览器里改（它 README 明说 API 改不了）。
+
+**② 新仓库里填这两样**（源码不要放进来，它明说不要）：
+
+`SUMMARY`（商店首页只露这一行）：
+
+```
+把小米大师变焦环变成通用旋钮：滚动、音量、亮度、视频进度，全在环上
+```
+
+`README.md` 用这版（中英各一段，署上游 + GPL 必须留）：
+
+```markdown
+## OmniRing 万能变焦环
+把 Xiaomi 17 Ultra（含徕卡版）的大师变焦环当成通用旋钮用：像数码表冠那样跟手滚列表，
+看视频时当进度环，也可以映射成音量 / 亮度 / 启动应用等动作。
+需要 root + LSPposed（作用域勾 System Framework）。
+Fork of [NextAlone/HyperZoomRing](https://github.com/NextAlone/HyperZoomRing), GPL-3.0.
+Source & changelog: https://github.com/TvTjiesen/OmniRing
+```
+
+**③ 建 Release**（关键：tag 格式 + 附件必须在创建 release 时就传上去）：
+
+| 字段 | 值 |
+| --- | --- |
+| Tag | `50-1.40.0` |
+| Release title | `1.40.0` |
+| 附件 | `OmniRing-1.40.0-beta-signed-legacy.apk` |
+| 正文 | 下面这份 changelog |
+
+```
+- 应用 ID 改为 io.github.tvtjiesen.omniring（老包名 xyz.nextalone.hyperzoomring 需卸载，两者互不覆盖）
+- 相机在前台时一律不注入手指（修"相机里概率触发上滑/下滑"）
+- 冷启动进入动画（表冠被拨一下停在某一格；浅色主题下滚花齿自动换深色墨）
+- HyperOS 3 双通道互斥（输入侧与传感器侧不再各执行一遍），并新增可回读证据：hzr_entry / 心跳第 8 段
+- 应用内表盘灵敏度烘进默认值 2.5（原来只在调试键里）
+- 这份包只保留传统模块入口：老版本 LSPosed 撞上双声明会一条都不加载，代价是会重新出现"使用已废弃功能"的黄字提示，不影响功能
+```
+
+**④ 提交后**：等 5~60 分钟；在 LSPosed 管理器 → 仓库 里按包名搜一次，确认图标 / SUMMARY / 版本号都对，
+**并且真从商店点一次"安装"**（商店装的就是这份签名，和已装的调试签名 beta 不通用，老 beta 用户要先卸载）。
+
+**⑤ 还没查清的一件事**（不当结论用）：官方没写图标尺寸要求，示例仓库 `org.meowcat.example` 已 404，
+所以提交前建议在 Telegram `@LSPosed` 问一句当前元数据规范。这条是二手信息，我和上面的一手内容分开写。
