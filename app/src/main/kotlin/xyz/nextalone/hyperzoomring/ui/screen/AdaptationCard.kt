@@ -159,8 +159,9 @@ private fun gradeNow(context: Context): Compatibility.Report {
         sdk = DeviceInfo.sdkInt,
         verdict = verdict.verdict,
         ringSamples = samples,
-        // 从心跳读实际路径，不写死：HyperOS 3 上输入侧也在收事件，这一行是给远程测试看的
-        activePath = verdict.snapshot?.activePath ?: "sensor",
+        // 从心跳读实际路径，不写死：HyperOS 3 上输入侧也在收事件，这一行是给远程测试看的。
+        // 带上传输侧"挡下/执行"的次数 —— 测试者只需要截一张首页图，我就能判掉双倍执行。
+        activePath = verdict.snapshot?.pathEvidence ?: "sensor",
     )
 }
 

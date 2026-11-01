@@ -43,6 +43,8 @@ class HeartbeatParseTest {
         assertEquals(0, snap.inputExec)
         assertEquals(5, snap.inputConsumeOnly)
         assertEquals("input+sensor", snap.activePath)
+        // 测试者不再连 adb，只截一张首页图：这一行就是图里要看得懂的东西
+        assertEquals("input+sensor 挡5/执0", snap.pathEvidence)
     }
 
     @Test

@@ -164,6 +164,21 @@ object Heartbeat {
         /** 哪条路在干活：输入侧完全没来过 = 本机（OS4）走传感器；来过 = OS3 那种两条路并存 */
         val activePath: String
             get() = if (inputExec + inputConsumeOnly == 0) "sensor" else "input+sensor"
+
+        /**
+         * 一行"看得懂截图"的证据：路径 + 输入侧被挡下 / 真执行的次数。
+         *
+         * 为什么要它：业主决定不发给测试者任何 adb 步骤，只让他们"有问题来找我"。
+         * 那样一来我们最怕的那件事（OS3 上两条路各执行一遍 = 滚一下走两下）就没有数据面。
+         * 这一行让**一张首页截图**足够判掉：
+         *   `sensor`                  → 输入侧一个事件都没收到（和 OS4 一样）
+         *   `input+sensor 挡N/执0`     → 收到事件了，但全被仲裁器挡下 → 只执行一遍，正常
+         *   `input+sensor 挡N/执M>0`   → 有 M 次是输入侧真的执行的 → 传感器路当时在断，
+         *                              不是双倍执行，但要问他那一下是不是"走了两下/慢了半拍"
+         */
+        val pathEvidence: String
+            get() = if (inputExec + inputConsumeOnly == 0) "sensor"
+            else "input+sensor 挡${inputConsumeOnly}/执${inputExec}"
     }
 
     fun parse(raw: String?): Snapshot? {
