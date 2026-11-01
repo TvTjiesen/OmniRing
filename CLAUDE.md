@@ -1,54 +1,80 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> **READ [`HANDOVER.md`](HANDOVER.md) FIRST — it is the single source of truth for this project.**
+> It carries the device safety gates, the verification discipline (install ≠ loaded ≠ loaded-new),
+> the architectural invariants, what's proven vs. waiting on HyperOS 3 receipts, and what the owner
+> has already decided but **not yet approved for implementation**. Do not start work from memory or
+> from this file alone.
+
+This file provides guidance to coding agents when working in this repository. Keep it pointing at
+`HANDOVER.md`; don't duplicate content here (two live docs drift apart — that's explicitly banned).
 
 ## What This Is
 
-LSPosed/Xposed module for Xiaomi 17 Ultra that intercepts the Master Zoom Ring hardware events and remaps them to custom system actions (volume, brightness, app launch). Hooks into `system_server` via YukiHookAPI.
+LSPosed/Xposed module for the Xiaomi 17 Ultra (Leica edition) that turns the **Master Zoom Ring**
+into a general-purpose dial: scrolling lists crown-style, video seek, volume / brightness, etc.
+It runs inside `system_server`. GPL-3.0 fork of NextAlone/HyperZoomRing — the modification notice
+required by GPL §5a lives in [`MODIFICATIONS.md`](MODIFICATIONS.md) and must keep being appended.
+
+Installed application ID since 2026-10-31: `io.github.tvtjiesen.omniring`
+(`namespace` / Kotlin package is still `xyz.nextalone.hyperzoomring` — those are different things).
 
 ## Build
 
 ```bash
-./gradlew :app:assembleDebug      # debug APK
-./gradlew :app:assembleRelease    # release (needs KEYSTORE_FILE, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD env vars)
-./gradlew :app:testDebugUnitTest  # unit tests
+source /e/dev/env.sh                      # adb / python / SDK live here
+./gradlew --offline :app:testDebugUnitTest   # baseline: 219 assertions, 0 failures
+./gradlew --offline :app:assembleDebug
+./gradlew --offline :app:assembleRelease                     # dual-declaration lane
+./gradlew --offline -Phzr.legacyOnly=true assembleRelease    # legacy-only lane (testers / store)
+python tools/i18n_check.py                 # four locales must stay in sync
 ```
 
-Min SDK 35 (Android 15), compile SDK 36, Java 21, Kotlin 2.3.
+Min SDK 35 (Android 15) · compile SDK 37 (Android 17) · Java 21 · Kotlin 2.3 · Compose + Miuix.
+No `KEYSTORE_FILE` env vars → release falls back to the **debug keystore** on purpose (so beta
+installs can keep updating in place). Formal release signing is a double-click: `tools/sign_key.bat`
+(see `docs/RELEASE-KEY-HOWTO.md`). Never route that passphrase through an agent or a file.
 
-## Architecture
+Deploy/verify by script, not by hand: `SER=<serial> bash tools/deploy_verify.sh`
+(and `tools/legacy_bench_verify.sh` for the old-LSPosed lane).
 
-**Hook layer** (`hook/`) — runs in `system_server` process:
-- `HookEntry` — Xposed entry point (`@InjectYukiHookWithXposed`), loads config via `YukiHookPrefsBridge` and delegates to `InputInterceptorHook`
-- `InputInterceptorHook` — hooks `InputManagerService.filterInputEvent` / `injectInputEvent` to intercept `MotionEvent` from the zoom ring device (`maxic, focus_ring_bridge`). Also hooks `ShortCutActionsUtils.launchCamera` to block accidental camera launch within 2s window
-- `ZoomRingSensorListener` — reads `mt350x OPTICALTRACKING` sensor (type `33171136`) for CW/CCW direction
+## Architecture (read `HANDOVER.md` §4 for the invariants)
 
-**Ring detection** (`ring/`) — pure logic, no Android dependencies (testable):
-- `ZoomRingDetector` — sliding-window speed detection → classifies events into 4 `GestureType` values (CW_SLOW, CW_FAST, CCW_SLOW, CCW_FAST)
-- `ZoomRingEvent` — data class carrying timestamp, scroll value, direction
-- `ZoomRingConstants` — hardware IDs, sensor type, speed thresholds
+**Two module entries** — `assets/xposed_init → HookEntry` (YukiHook / legacy) and
+`META-INF/xposed/{module.prop,java_init.list} → CrownModule` (libxposed API 102). LSPosed 2.2.1 uses
+the 102 one; **LSPosed ≤ v1.11.0 loads nothing at all when both are declared**, which is why the
+`legacyOnly` build lane exists. Probe `hzr_entry` reports which entry actually ran.
 
-**Action system** (`action/`):
-- `Action` interface — `execute(context, intensity)` contract
-- `ActionRegistry` — singleton registry of all available actions
-- Concrete actions in `actions/` — `VolumeAction`, `BrightnessAction`, `LaunchAppAction`
+**Hook layer** (`hook/`) — `InputInterceptorHook.startRuntime()` is the part shared by both entries
+(sensor listener, config channel, scene detection); new behaviour goes into the shared segment.
+`CrownHooks` installs the 102-side hooks. Both hook `InputManagerService.filterInputEvent` /
+`injectInputEvent` / `interceptKeyBeforeQueueing` and `ShortCutActionsUtils.launchCamera`.
+`SensorRingDriver` drives the `mt350x OPTICALTRACKING` sensor path (the only one that works on
+HyperOS 4, where `InputFilterEnabled=false`).
 
-**Config** (`config/ConfigManager`) — abstracts `SharedPreferences` vs `YukiHookPrefsBridge` via `PrefsStore` interface. Module host reads via `fromContext()`, hook side via `fromYukiPrefs()`.
+**Ring logic** (`ring/`) — pure, testable: `ZoomRingDetector` (direction/backlash/peak decay),
+`CrownModel` (the tuned feel parameters), `RingSourceArbiter` (lease-based arbitration between the
+two event sources so HyperOS 3 doesn't execute twice — fail-open, deliberately not a hard disable),
+`ForegroundGate` (camera + app-transition gates), `ScrubHoldModel` (video seek bar drag).
 
-**UI** (`ui/`) — Jetpack Compose + Miuix design system. `MainActivity` → navigation to `HomeScreen`, `GestureConfigScreen`, `DiagnosticScreen`.
+**Config** (`config/`) — `ConfigManager` over a `PrefsStore` abstraction. The system-server side
+**cannot read the app's private prefs**, so config is pushed by the App over a signature-level
+broadcast (`ConfigPayload` / `ConfigSync`) and mirrored into `Settings.Global` (`hzr_snapshot`) for
+boot self-healing. Action names and the permission name derive from `BuildConfig.APPLICATION_ID` —
+hard-coded literals there are regression-prone and pinned by tests.
 
-## Key Dependencies
+**Heartbeat / probes** (`util/Heartbeat.kt`, `hook/DebugProbe.kt`) — the only trustworthy liveness
+evidence. Payload fields are append-only and `;`-separated. See `HANDOVER.md` §2 before believing
+any "it works" claim.
 
-- **YukiHookAPI 1.3.0** — Xposed hook framework (with KSP code generation)
-- **Miuix 0.8.8** (`top.yukonga.miuix.kmp:miuix-android`) — Xiaomi-style UI components
-- **Xposed API 82** — compileOnly
+**UI** (`ui/`) — Compose + Miuix (iOS-style top bar collapse, liquid-glass bottom bar, cold-start
+crown animation in `ui/launch/`). Compose body text is **not** exposed to `uiautomator` — never
+guess tap coordinates on it.
 
-## Event Flow
+## Conventions
 
-```
-Zoom Ring HW → focus_ring_bridge input device → InputManagerService (hooked)
-             → optical_tracking sensor → ZoomRingSensorListener (direction)
-InputInterceptorHook: if not camera foreground → ZoomRingDetector → GestureType → ActionRegistry → Action.execute()
-```
-
-Camera passthrough: events pass through unmodified when `com.android.camera` or `com.xiaomi.camera` is the top activity.
+- Every delivery round appends to `MODIFICATIONS.md` (GPL §5a) and bumps `DebugProbe.BUILD_TAG`
+  (`cfgNN`) plus `versionCode`; tuned parameters get baked into code defaults, not left in debug keys.
+- Local commits only; do not push (owner's standing instruction).
+- Taste and feel are the owner's call; device installs, credentials, irreversible actions and any
+  UI-injection on his daily phone are gated on him being present.
