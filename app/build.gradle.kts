@@ -31,11 +31,13 @@ android {
         applicationId = "io.github.tvtjiesen.omniring"
         minSdk = 35
         targetSdk = 35
-        // 装机验收已经跑了十几轮，还有一堆已知问题没收敛 —— 按他的要求版本号要动起来并以 beta 结尾。
-        // 口径：versionCode = 第几轮装机（每次交付 +1），versionName 跟着轮次走高、
-        // 始终以 -beta 结尾（这是测试项目，他明确要求不要停在 1.0.0）。
-        versionCode = 50
-        versionName = "1.40.0-beta"
+        // 口径：versionCode = 第几轮交付（每次 +1），versionName 跟着轮次走高。
+        // 1.39 及之前一律以 -beta 结尾（测试项目，他明确要求不要停在 1.0.0）；
+        // 1.40.0 起去掉 -beta —— 因为这一版要进 LSPosed 商店，商店页是给普通用户看的，
+        // 而且仓库要求 release tag = "<versionCode>-<versionName>"，带 beta 看着就像测试包。
+        // 以后再进新一轮实测，重新回到 x.y.z-beta 的写法。
+        versionCode = 51
+        versionName = "1.40.0"
     }
 
     signingConfigs {

@@ -275,3 +275,21 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
   而且你刚才转环转出了 156 个样本、115 次成功分发（`CW_FAST/CCW_SLOW → scroll`）。
 
 版本号：`versionCode 50` / `versionName 1.40.0-beta` / `DebugProbe.BUILD_TAG = cfg44`。测试 219 条 0 失败。
+
+### 版本号口径变更（2026-11-01 下午）
+
+`versionCode 51` / `versionName **1.40.0**`（去掉 `-beta`）/ `DebugProbe.BUILD_TAG = cfg45`。
+原因是这一版要进 LSPosed 模块仓库：商店页是给普通用户看的，而且那边要求 release tag
+是 `<versionCode>-<versionName>`，带 `-beta` 看着就是测试包。以后再进实测轮，重新回到 `x.y.z-beta`。
+
+同一轮还加了一条"没有 adb 也能取证"的判据：首页「技术路径」从 `sensor` / `input+sensor`
+升级成带计数的 `input+sensor 挡N/执M`（`Heartbeat.Snapshot.pathEvidence`，纯函数 + 单测），
+这样测试者只要发一张首页截图，就能把"输入侧收到事件但被挡下"和"真在双倍执行"分开。
+
+产物：`build/OmniRing-1.40.0.apk`（双声明，md5 `3741a2a3…`）与
+`build/OmniRing-1.40.0-legacy.apk`（只留传统入口，md5 `a006beed…`，给测试者与上架那份）。
+**两份都还是回落的调试签名** —— 上架前必须用正式密钥重签一次（`tools/sign_key.bat`，见
+`docs/RELEASE-KEY-HOWTO.md`）。`cfg45` 尚未装到真机（数据线中途拔掉），所以这版只有离线核验：
+219 条断言 0 失败、四语 234/234 对齐、`aapt2` 回读包名/版本号、dex 里的 `cfg45` 戳、
+两份的 `META-INF/xposed` 差别（2 个 vs 0 个）。真机上是上一个 `cfg44`，那版装机验证过
+（探针 `build=cfg44`、心跳带新签名、`recv` 从开机早期 NPE 变 `ok`）。
