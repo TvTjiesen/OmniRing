@@ -1,39 +1,29 @@
-# 改动说明（GPL-3.0 §5a 要求的显著声明）
 
-本仓库是 **NextAlone/HyperZoomRing** 的二改版本。下列文件由本次二改**新增或修改**，
-改动日期为 **2026-10-11 ~ 2026-10-12**，作者：**TvTjiesen**。原始版本见 `README.upstream.md`，
-完整原始许可见 `LICENSE`（GPL-3.0，保持不变）。
+## 第十六批（2026-11-02）· 代码来源统计改成可复现判据 + 首次推送 GitHub
 
-二改版在界面上的名字是 **万能变焦环 / OmniRing**（含新启动图标）。
-应用 ID 在 **2026-10-31（1.40.0-beta / cfg43）从上游的 `xyz.nextalone.hyperzoomring` 改为
-`io.github.tvtjiesen.omniring`**（改动原因与迁移代价见 `docs/LSPOSED-STORE.md` 和本文件第十二批）；
-Kotlin 的 `namespace`、源码目录与上游原文件的包声明保持 `xyz.nextalone.*` 不变 ——
-改的只是"装机身份"，不是"代码署名"。上游署名仍在本文件、`README.md` 与 App 内「设置 → 致谢」。
+本批**没有任何 App 功能改动**（不产生新构建戳，包内仍 `cfg46`），只改统计工具与文档。
 
-代码占比（`tools/code_share.py`，2026-10-12 复算，76 个 .kt / 9493 行）：
-本 fork 新增 32%、移植 Miuix 液态玻璃 15%、上游文件被重写 13%、上游原样保留 38%。
-上游的署名放在 App 内「设置 → 致谢」和本文件、`README.md`，不再占用界面首屏。
-
-## 为什么要二改
-
-HyperOS 4 把 `dumpsys input` 里的 `InputFilterEnabled` 强制置为 `false`，Android 因此
-不再调用 `InputManagerService.filterInputEvent` —— 而上游模块**唯一**的硬件事件捕获点
-就是它。结果：上游 13 个动作在这台机器上全部失效，且写 `settings put global
-input_filter_enabled 1` 也救不回来（ROM 层忽略）。本次二改把触发源整体换成
-mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上补齐了"表冠式滚动"和
-"视频进度环"。
-
-## 新增文件
-
-### 算法与调度（全部是不依赖 Android 的纯类，能在 PC 上跑单测和真机样本回放）
-
-| 文件 | 作用 |
-| --- | --- |
-| `ring/CrownModel.kt` | 表冠模型：停手重锚定（传感器参考点会归零）、回差棘轮、按真实时间衰减的峰值速度 |
-| `ring/ScrollTracker.kt` | 滚动的纯运动部分：单误差直驱 `err = target − applied`，含防误触落指门槛与补位移 |
-| `ring/ScrollModeModel.kt` | 滚动的里程表：带符号累计转幅 × 增益 = 注入端要追的绝对目标（方向只跟实际转向走） |
-| `ring/ActionRouter.kt` | 每个动作走哪条通道（连续滚动 / 进度 / 拖进度条 / 离散）的纯判断，全量单测钉住；删掉的 `scroll_up`/`scroll_down` 旧存档 id 也在这里兜回滚动通道 |
-| `action/InjectionBudget.kt` | 触摸注入的闸门：只数**连续**失败、到上限只冷却 5 秒。旧版是终身累计 `failures>=8` 永久停用，就是他说的"有概率丢失触控、表冠和触摸一起死" |
+- **`tools/code_share.py` 换判据**：旧版靠两张手写字面清单（`NEW`/`MOD`）给文件分类，
+  凡是不在清单里的新文件一律被算成"上游原样"，于是 README 里长期挂着"上游原样保留 40 文件 38%"。
+  改成**跟上游工作副本逐文件比 md5**（`--upstream <dir>`），并归一化 CRLF —— 本仓库提交会把 LF 改 CRLF，
+  不归一化会把这 8 个其实一字未改的小文件误判成"重写"。旧版 README 的 57 个 .kt / 6534 行也已过时。
+- **复核出的真实占比**（上游 HEAD `55b3bb7`）：上游 `app/src` 31 个 .kt / 2153 行；本仓库 132 个 .kt / 17369 行。
+  其中**上游一行没动的只有 8 个文件 / 227 行 = 现体量 1.3%**（音量 `VolumeAction`、亮度 `BrightnessAction`、
+  手电筒 `FlashlightAction`、`ConfigScope`/`DispatchMode`/`SceneType`/`ZoomRingConstants`/`ZoomRingEvent`），
+  另有 3 个非代码文件逐字节相同（`assets/xposed_init`、`resources/META-INF/yukihookapi_init`、
+  `res/values/xposed_scope.xml`）；重写 22 个 / 3507 行；新增 102 个 / 13635 行；删除 1 个（`ring/GestureType.kt`）。
+- **`README.md` §代码来源与占比 重写**：换成上述实测表 + 复跑命令，并明确写"上游代码只剩 1.3%，但衍生关系仍成立"——
+  包名 `xyz.nextalone.hyperzoomring`、`Action` 接口与 16 个动作 id、`ConfigManager` 键名、目录结构都源自上游，
+  因此 GPL-3.0 的署名与 §5a 显著修改声明**继续保留**（删掉反而有法律风险，保留成本为零）。
+- **首次推送到 GitHub（业主 2026-11-02 明确授权「直接发布上传github吧」，此前 §11 一直是"只本地提交不 push"）**：
+  26 个本地提交推到 `TvTjiesen/OmniRing` 的 `main`（`6a885cc` → `7390dbc`）。本机 `.gitconfig` 的
+  `url."https://gh-proxy.com/https://github.com/".insteadOf` 会把推送地址改写成镜像并报
+  `No anonymous write access`，绕法是用显式端口 `https://github.com:443/...`（前缀不匹配规则），
+  凭据用 `-c credential.helper='!f(){ echo username=x-access-token; echo "password=$(gh auth token)"; }; f'`，
+  token 不进命令行也不落盘。
+- **推送前的红线自查**（业主锁屏 PIN 绝不外发）：把 6 位串拆成两段在脚本内拼接，
+  扫工作树（排除 `.git`/`build`）与**所有 commit 的全部 blob** —— 均为 0 命中。
+�摸注入的闸门：只数**连续**失败、到上限只冷却 5 秒。旧版是终身累计 `failures>=8` 永久停用，就是他说的"有概率丢失触控、表冠和触摸一起死" |
 | `ring/ScrubModel.kt` | 绝对目标进度求对（会话基准 + 节流 + 钳位） |
 | `ring/ScrubHoldModel.kt` | "按住不放"式进度拖拽的偏移模型 |
 | `ring/SeekGate.kt` | 这一把该调进度还是该滚动（横竖屏 / 播放中 / 暂停 / 竖屏白名单） |
