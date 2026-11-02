@@ -54,7 +54,7 @@
 | GPL-3.0 义务 | ✅ | 源码仓库已公开（`TvTjiesen/OmniRing`），`MODIFICATIONS.md` 是 §5a 要求的显著声明；`LICENSE` 保持 GPL-3.0 |
 | 上传哪一份 APK | ◐ 待定 | 建议**上架那份用 legacy-only 包**（`-Phzr.legacyOnly=true`）：老 LSPosed 撞上双声明会一条都不加载（`HYPEROS3-SELFCHECK.md` §6 实测），商店用户里一定有人是老版本框架，"能加载 + 一条废弃警告" 比 "界面一切正常但完全失灵" 好得多。要发双声明那份也行，但必须在说明里写清 LSPosed 需 ≥2.2.x |
 | SUMMARY / README / 图标 | ◐ 待写 | 首页只露 SUMMARY 一行；图标来自 APK 自己的启动图标（我们是自适应 XML，没有 512px PNG）—— 上架前建议补一张，效果差别很大 |
-| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（我们现在是 `50-1.40.0`），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
+| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（我们是 **`51-1.40.0`**：11-01 那版是 `50-…`，现版已抬到 51），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
 | 商店仓库存不放源码 | ✅ | README 明说不要往那个仓库传源码 —— 我们照常把源码放在自己的仓库 |
 
 ## 3. 包名：两条路怎么挑，以及最后走了哪条
@@ -110,7 +110,7 @@
    → 机器人建仓库并邀请你为 maintainer（**Description/Title/Home Page 只能在浏览器里改，
    README 明说 API 改不了**）。
 5. 在新仓库填 `SUMMARY`（一行）与 `README.md`（详细介绍），**不要**传源码。
-6. 建 GitHub Release：Tag `50-1.40.0`，Title `1.40.0`，正文=changelog，
+6. 建 GitHub Release：Tag **`51-1.40.0`**，Title `1.40.0`，正文=changelog，
    **同一个 release 里把 APK 附件一起传上去**，Home Page 指回源码仓库或支持群。
 7. 等 5~60 分钟；在 LSPosed 管理器 → 商店 里按包名搜一次，确认图标/SUMMARY/版本号都对，
    并且**在测试机上验一次"从商店点更新"能不能装上**（商店→安装走的也是签名，
@@ -122,7 +122,7 @@
   - `把小米大师变焦环变成通用旋钮：滚动、音量、亮度、视频进度，全在环上`
   - `Turn the Xiaomi Master Zoom Ring into a universal dial: scroll, volume, brightness, video seek`
 - issue 标题：`[submission] io.github.tvtjiesen.omniring`
-- Release Tag / Title：`50-1.40.0` / `1.40.0`
+- Release Tag / Title：**`51-1.40.0`** / `1.40.0`
 - README.md 骨架：直接用源码仓库 README 的"它是什么 / 怎么装 / 需要 root + LSPosed /
   作用域要勾哪些 / 支持的系统（HyperOS 3 待回执、HyperOS 4 已实测）/ 已知问题 /
   免责声明（改系统输入路径，刷机风险自担）/ 上游致谢 NextAlone/HyperZoomRing + GPL-3.0"。
@@ -139,15 +139,24 @@
   真要提 issue 之前，我建议先在他们的 Telegram 群 `@LSPosed` 问一句当前元数据要求 ——
   这句话是二手信息，我把它和一手内容分开写着。
 
-## 7. 现在能直接抄走的那一页（2026-11-01，正式签名已生效）
+## 7. 现在能直接抄走的那一页（2026-11-02 刷新：`cfg46` / versionCode **51**）
 
 **签名身份（已定，以后不能换）**：证书 `CN=OmniRing, OU=TvTjiesen, O=TvTjiesen`
 指纹 SHA256 `22:2F:C2:90:A5:AD:E9:39:8B:01:00:E9:68:31:27:11:82:86:F5:E1:45:DE:C6:81:B5:7A:E9:89:19:45:BC:1B`
 
 **要上传的那一份**（只留传统入口，新老 LSPosed 都能加载）：
-`build/OmniRing-1.40.0-beta-signed-legacy.apk` · 4,720,515 B · md5 `d750e303ebc1a7d8c8e68de8eb4fb989`
-（自己日常机继续用 `OmniRing-1.40.0-beta-signed.apk`，双声明那份 · 4,720,852 B · md5 `dbd148d0e7bb5712641961d4dbaf79d6`）
-两份都已用 `apksigner` 回读核过签名 = 上面那行指纹，且 dex 里的构建戳都是 `cfg44`。
+`build/OmniRing-1.40.0-signed-legacy.apk`（双击 `tools\sign_key.bat` 之后才会出现；日常机用同批的 `OmniRing-1.40.0-signed.apk`）。
+
+⚠ **2026-11-02 实测：`build/` 里 11-01 那两份 `-beta-signed` 包已经不在磁盘上了**（`release_sign_report.txt`
+里还记着它们的 md5 `d750e303…` / `dbd148d0…`，但文件没有了），**上架前必须重新双击一次 `sign_key.bat`**。
+
+我能先替你把关的部分已经验过（不带口令的那半条链）：
+`./gradlew --offline assembleRelease` 与 `-Phzr.legacyOnly=true assembleRelease` 都 **exit 0**，
+产物 `build/rc_dual.apk`（md5 `089f91efd9c30e70654c93540d4dd49f`，444 entries，`META-INF/xposed` **2 条**）
+与 `build/rc_legacy.apk`（md5 `0738fc61875ea09966587ecc2ec96dcb`，442 entries，`META-INF/xposed` **0 条**），
+两份 `aapt2 dump badging` 都是 `io.github.tvtjiesen.omniring` / `versionCode 51` / `1.40.0` / 标签「万能变焦环」，
+dex 里构建戳都是 **`cfg46`**；`apksigner` 回读目前都是 **Android Debug**
+（`8785e490…`）——**这正是必须由你双击重签的那一步**。
 
 **① 提交 issue**（仓库 `Xposed-Modules-Repo/submission`，标题一字不差）：
 
@@ -171,7 +180,7 @@
 ## OmniRing 万能变焦环
 把 Xiaomi 17 Ultra（含徕卡版）的大师变焦环当成通用旋钮用：像数码表冠那样跟手滚列表，
 看视频时当进度环，也可以映射成音量 / 亮度 / 启动应用等动作。
-需要 root + LSPposed（作用域勾 System Framework）。
+需要 root + LSPosed（作用域勾 System Framework）。
 Fork of [NextAlone/HyperZoomRing](https://github.com/NextAlone/HyperZoomRing), GPL-3.0.
 Source & changelog: https://github.com/TvTjiesen/OmniRing
 ```
@@ -180,9 +189,9 @@ Source & changelog: https://github.com/TvTjiesen/OmniRing
 
 | 字段 | 值 |
 | --- | --- |
-| Tag | `50-1.40.0` |
+| Tag | `51-1.40.0` |
 | Release title | `1.40.0` |
-| 附件 | `OmniRing-1.40.0-beta-signed-legacy.apk` |
+| 附件 | `OmniRing-1.40.0-signed-legacy.apk`（重签后从 `build/` 里取） |
 | 正文 | 下面这份 changelog |
 
 ```
@@ -191,6 +200,9 @@ Source & changelog: https://github.com/TvTjiesen/OmniRing
 - 冷启动进入动画（表冠被拨一下停在某一格；浅色主题下滚花齿自动换深色墨）
 - HyperOS 3 双通道互斥（输入侧与传感器侧不再各执行一遍），并新增可回读证据：hzr_entry / 心跳第 8 段
 - 应用内表盘灵敏度烘进默认值 2.5（原来只在调试键里）
+- 表冠统一逻辑：顺时针/逆时针两槽位（不再分快转慢转），转速只影响幅度；老配置的四槽位自动合并，原"启动应用"槽位回落为滚动
+- 老配置与新键并存：新版只写新键、旧键只读不删，装回旧版行为不变
+- 诊断页「事件总数」改为读心跳累计（原来看的是当前页面收到的广播，翻页就归零）
 - 这份包只保留传统模块入口：老版本 LSPosed 撞上双声明会一条都不加载，代价是会重新出现"使用已废弃功能"的黄字提示，不影响功能
 ```
 

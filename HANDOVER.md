@@ -104,6 +104,13 @@
 - **现在 `build/` 里那两份还是回落调试签名**：`OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与
   `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`，测试者/上架用这份）→ **上架前必须重签一次**。
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
+  **2026-11-02 刷新**：当前 tag 是 **`51-1.40.0`**（versionCode 已从 50 抬到 51），附件名 `OmniRing-1.40.0-signed-legacy.apk`；
+  `assembleRelease` 两种变体都已从当前源码验过能出（`build/rc_dual.apk` / `build/rc_legacy.apk`，dex 戳 `cfg46`），
+  但**磁盘上没有任何正式签名的包**——`build/` 里 11-01 那两份 `-beta-signed` 已丢失，上架前必须重新双击 `tools\sign_key.bat`。
+  商店方图用 `python tools/gen_store_icon.py` 出（`build/store_icon_512.png`，与 APK 自适应图标同一份几何）。
+- **HyperOS 3 一句话口径**：代码侧 9 条能证死的已证死（`docs/HYPEROS3-SELFCHECK.md` §1），
+  但**没有任何 OS3 真机正向证据**，所以 `TESTED_MIN_SDK` 保持 37、适配卡在 OS3 显示 WARN/部分适配。
+  商店 README 只写「HyperOS 4 已实测」，别替 OS3 吹。
 - 包名迁移代价（对外的硬事实）：`1.39` 及之前是 `xyz.nextalone.hyperzoomring`，两个 ID **互不覆盖**；老用户要先在 LSPosed 关掉旧模块再卸载。App 首页有警示卡，装机脚本会备份/还原 prefs。给测试者的那份已经写了这条。
 
 ## 8. 未完成的活

@@ -412,3 +412,27 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
 - 顺带修掉一个静默 bug：`tools/deploy_verify.sh` 里 `am start -n $PKG/$PKG.ui.MainActivity`（两处）
   因为 applicationId ≠ Kotlin namespace 一直 `Error type 3` 失败且输出被丢进 /dev/null，
   已改为 `$ACT=$PKG/xyz.nextalone.hyperzoomring.ui.MainActivity`。
+
+## 第十五批（2026-11-02）· 上架 LSPosed 商店的前置核对（无功能改动）
+
+这一批只动文档与工具，**App 代码零改动**（所以不产生新的构建戳，包内仍是 `cfg46`）。
+
+- **`docs/LSPOSED-STORE.md` §7 刷新**：商店 tag 从历史值 `50-1.40.0` 抬到 **`51-1.40.0`**
+  （`versionCode` 已是 51）；附件名从 `-beta-signed` 改为 **`OmniRing-1.40.0-signed-legacy.apk`**；
+  changelog 补上表冠统一逻辑（两槽位、老四键只读不删、诊断页事件总数改读心跳累计）三条。
+  并注明：11-01 那两份 `-beta-signed` 包**已不在磁盘上**（`release_sign_report.txt` 里还留着 md5），
+  上架前必须重新双击 `tools\sign_key.bat` 出包。
+- **新增 `tools/gen_store_icon.py`**：按 `tools/gen_icon.py` **同一份几何**烘一张 512×512 的商店方图
+  （自适应图标是 108dp 图层只露 72dp，系统放大 1.5 倍再裁圆，所以这里也按"72dp 铺满画布"渲染，
+  与用户在桌面看到的比例一致）。产物 `build/store_icon_512.png`（108,457 B）与 `build/store_icon_192.png`；
+  抽样核对过中心玻璃面 `(11,15,24)`、外圈 `(149,167,192)`、红点 `(229,50,43)`、四角仍是斜向石墨底色。
+- **构建侧已先验过（不带口令的那半条链）**：`./gradlew --offline assembleRelease` 与
+  `-Phzr.legacyOnly=true assembleRelease` 都 exit 0，产物分别是
+  `build/rc_dual.apk`（md5 `089f91efd9c30e70654c93540d4dd49f`，444 entries，`META-INF/xposed` 2 条）
+  与 `build/rc_legacy.apk`（md5 `0738fc61875ea09966587ecc2ec96dcb`，442 entries，0 条），
+  两者 `aapt2 dump badging` = `io.github.tvtjiesen.omniring` / `versionCode 51` / `1.40.0` / 「万能变焦环」，
+  dex 戳均为 `cfg46`，`apksigner` 回读均为 Android Debug（`8785e490…`）——**重签是业主本人那一步**。
+- **HyperOS 3 口径未变**：`util/Compatibility.kt` 的 `TESTED_MIN_SDK` 仍是 **37**（OS3 = SDK 36 显示 WARN /
+  部分适配）。代码侧能证死的 9 条仍见 `docs/HYPEROS3-SELFCHECK.md` §1，缺的仍是那份**真机回执**
+  （一张首页截图看心跳第 8 段 `input+sensor 挡N/执0` + 四句话）。
+  所以商店 README 只写「HyperOS 4 已实测」，**不写适配 OS3**。
