@@ -4,7 +4,7 @@
 细节在 `README.md`、`MODIFICATIONS.md`、`docs/*.md` 里，下面只标去哪查、不重复抄。
 
 工程：`E:\dev\hzr`（GPL-3.0，fork 自 NextAlone/HyperZoomRing）· 当前 `HEAD` 是
-`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg45`）· 装机身份
+`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg47`，见 §8D）· 装机身份
 `io.github.tvtjiesen.omniring`（**2026-10-31 从上游包名改过来的**，原因见
 `docs/LSPOSED-STORE.md`）。
 
@@ -156,6 +156,15 @@
 未写 ⇒ 下次启动 App 会弹一次性合并提示。
 
 **D. 别再做**：宣传图/海报（他叫停了）；性能基线拿 debug 包量（R8 后 4.7 MB vs debug 47 MB， debug 量出来的数没意义）。
+
+## 8D. 本批（2026-11-02 晚，`cfg47`）新增两个功能
+
+- **作用域自动勾选**：新增 `app/src/main/resources/META-INF/xposed/scope.list`（`system`）。
+  LSPosed 对 modern 模块只用这个文件当"推荐作用域"，没有它就只能手工勾「系统框架」。
+  `res/values/xposed_scope.xml` 是 legacy 车道用的，保留不动。
+- **反馈包导出**：`util/DiagReport.kt` + 诊断页两个按钮（复制 / 存到 `下载/OmniRing/`）。
+  走 `su -c logcat`（本模块必须 root，用户必然有 su），拿不到 su 会在文本里标注；
+  筛选名单与上限见文件头注释，`DiagReportTest` 钉住筛选行为。
 
 ## 9. 和业主协作的方式（他明确表达过的偏好）
 

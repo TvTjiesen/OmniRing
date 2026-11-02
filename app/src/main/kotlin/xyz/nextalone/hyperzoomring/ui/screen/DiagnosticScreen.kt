@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -25,9 +26,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import top.yukonga.miuix.kmp.basic.TextButton
 import xyz.nextalone.hyperzoomring.R
+import xyz.nextalone.hyperzoomring.util.DiagReport
 import xyz.nextalone.hyperzoomring.util.Heartbeat
 import xyz.nextalone.hyperzoomring.util.ScopeReload
 import xyz.nextalone.hyperzoomring.util.StatusJudge
@@ -233,6 +238,80 @@ fun DiagnosticScreen(
                         },
                         modifier = Modifier.padding(top = 10.dp),
                     )
+                }
+            }
+        }
+
+                // 反馈包：模块要求 root，所以这里可以直接问 su 要 logcat；
+        // 拿不到 su 时 DiagReport 会在文本里写明"只有本进程日志"，不假装是完整包。
+        item {
+            val scope = rememberCoroutineScope()
+            var busy by remember { mutableStateOf(false) }
+            var message by remember { mutableStateOf<String?>(null) }
+            Card {
+                Column(Modifier.padding(20.dp)) {
+                    Text(
+                        text = stringResource(R.string.diag_report_title),
+                        fontSize = 14.sp,
+                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    )
+                    Text(
+                        text = stringResource(R.string.diag_report_hint),
+                        fontSize = 12.sp,
+                        color = MiuixTheme.colorScheme.onBackgroundVariant,
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                    Row(Modifier.padding(top = 10.dp)) {
+                        TextButton(
+                            text = stringResource(R.string.diag_report_copy),
+                            onClick = {
+                                if (!busy) {
+                                    busy = true
+                                    message = null
+                                    scope.launch {
+                                        val text = withContext(Dispatchers.IO) {
+                                            runCatching { DiagReport.compose(context) }.getOrDefault("")
+                                        }
+                                        message = if (text.isBlank() || !DiagReport.copy(context, text)) {
+                                            context.getString(R.string.diag_report_failed)
+                                        } else {
+                                            context.getString(R.string.diag_report_copied)
+                                        }
+                                        busy = false
+                                    }
+                                }
+                            },
+                        )
+                        TextButton(
+                            text = stringResource(R.string.diag_report_save),
+                            onClick = {
+                                if (!busy) {
+                                    busy = true
+                                    message = null
+                                    scope.launch {
+                                        val text = withContext(Dispatchers.IO) {
+                                            runCatching { DiagReport.compose(context) }.getOrDefault("")
+                                        }
+                                        val path = if (text.isBlank()) null else withContext(Dispatchers.IO) {
+                                            DiagReport.save(context, text)
+                                        }
+                                        message = path?.let { context.getString(R.string.diag_report_saved, it) }
+                                            ?: context.getString(R.string.diag_report_failed)
+                                        busy = false
+                                    }
+                                }
+                            },
+                            modifier = Modifier.padding(start = 12.dp),
+                        )
+                    }
+                    message?.let {
+                        Text(
+                            text = it,
+                            fontSize = 12.sp,
+                            color = MiuixTheme.colorScheme.onBackgroundVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
                 }
             }
         }

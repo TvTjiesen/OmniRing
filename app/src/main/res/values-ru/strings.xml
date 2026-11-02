@@ -249,4 +249,12 @@
     <string name="compat_loaded_no">Не загружен</string>
     <string name="compat_ring_seen">Валидных событий: %1$d</string>
     <string name="compat_ring_none">С момента загрузки данных нет</string>
+
+    <string name="diag_report_title">Отчёт</string>
+    <string name="diag_report_hint">Собирает состояние модуля и его журнал — можно вставить текстом или сохранить файлом</string>
+    <string name="diag_report_copy">Копировать</string>
+    <string name="diag_report_save">Сохранить в файл</string>
+    <string name="diag_report_copied">Скопировано — вставьте в чат долгим нажатием</string>
+    <string name="diag_report_saved">Сохранено в %1$s</string>
+    <string name="diag_report_failed">Не удалось сохранить, проверьте свободное место</string>
 </resources>

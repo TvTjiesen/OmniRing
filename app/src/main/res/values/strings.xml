@@ -250,4 +250,12 @@
     <string name="compat_loaded_no">未被加载</string>
     <string name="compat_ring_seen">累计 %1$d 次有效样本</string>
     <string name="compat_ring_none">开机后还没收到环数据</string>
+
+    <string name="diag_report_title">反馈包</string>
+    <string name="diag_report_hint">把运行证据和模块日志打包，直接粘贴或存成文件发给作者</string>
+    <string name="diag_report_copy">复制到剪贴板</string>
+    <string name="diag_report_save">存成文件</string>
+    <string name="diag_report_copied">已复制，去聊天里长按粘贴</string>
+    <string name="diag_report_saved">已存到 %1$s</string>
+    <string name="diag_report_failed">导出失败，请确认存储空间</string>
 </resources>

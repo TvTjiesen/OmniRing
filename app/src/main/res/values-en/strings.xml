@@ -249,4 +249,12 @@
     <string name="compat_loaded_no">Not loaded</string>
     <string name="compat_ring_seen">%1$d valid samples so far</string>
     <string name="compat_ring_none">No ring data since boot</string>
+
+    <string name="diag_report_title">Bug report</string>
+    <string name="diag_report_hint">Bundles the runtime evidence and module log — paste it or save it as a file</string>
+    <string name="diag_report_copy">Copy</string>
+    <string name="diag_report_save">Save as file</string>
+    <string name="diag_report_copied">Copied — long-press to paste in the chat</string>
+    <string name="diag_report_saved">Saved to %1$s</string>
+    <string name="diag_report_failed">Export failed, check free storage</string>
 </resources>
