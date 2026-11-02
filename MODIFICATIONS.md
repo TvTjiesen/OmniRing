@@ -436,3 +436,9 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
   部分适配）。代码侧能证死的 9 条仍见 `docs/HYPEROS3-SELFCHECK.md` §1，缺的仍是那份**真机回执**
   （一张首页截图看心跳第 8 段 `input+sensor 挡N/执0` + 四句话）。
   所以商店 README 只写「HyperOS 4 已实测」，**不写适配 OS3**。
+- **同日 20:09 业主双击 `tools\sign_key.bat` 出了正式签名包**（口令全程没过我手）：
+  `build/OmniRing-1.40.0-signed.apk`（md5 `b30d4c69080b2725351228267a984557`，444 entries，`META-INF/xposed` 2 条）
+  与 `build/OmniRing-1.40.0-signed-legacy.apk`（md5 `70705b8dfb977c251e13e060ca58a4b6`，442 entries，0 条），
+  两份 `apksigner verify --print-certs` 均为 **V2 signer / SHA-256 `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b`**
+  （= 正式证书指纹，我独立回读、不采信脚本自述），`aapt2` 仍是 `io.github.tvtjiesen.omniring` / 51 / 1.40.0，
+  dex 戳 `cfg46`。**签名关已过，剩下的只有提 issue 与建 release 两个网页操作。**

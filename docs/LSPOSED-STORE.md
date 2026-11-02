@@ -147,16 +147,21 @@
 **要上传的那一份**（只留传统入口，新老 LSPosed 都能加载）：
 `build/OmniRing-1.40.0-signed-legacy.apk`（双击 `tools\sign_key.bat` 之后才会出现；日常机用同批的 `OmniRing-1.40.0-signed.apk`）。
 
-⚠ **2026-11-02 实测：`build/` 里 11-01 那两份 `-beta-signed` 包已经不在磁盘上了**（`release_sign_report.txt`
-里还记着它们的 md5 `d750e303…` / `dbd148d0…`，但文件没有了），**上架前必须重新双击一次 `sign_key.bat`**。
+**✅ 2026-11-02 20:09 已重签出包**（业主本人双击 `sign_key.bat`，口令没过我手）。`build/` 里现在是：
 
-我能先替你把关的部分已经验过（不带口令的那半条链）：
-`./gradlew --offline assembleRelease` 与 `-Phzr.legacyOnly=true assembleRelease` 都 **exit 0**，
-产物 `build/rc_dual.apk`（md5 `089f91efd9c30e70654c93540d4dd49f`，444 entries，`META-INF/xposed` **2 条**）
-与 `build/rc_legacy.apk`（md5 `0738fc61875ea09966587ecc2ec96dcb`，442 entries，`META-INF/xposed` **0 条**），
-两份 `aapt2 dump badging` 都是 `io.github.tvtjiesen.omniring` / `versionCode 51` / `1.40.0` / 标签「万能变焦环」，
-dex 里构建戳都是 **`cfg46`**；`apksigner` 回读目前都是 **Android Debug**
-（`8785e490…`）——**这正是必须由你双击重签的那一步**。
+| 文件 | md5 | 大小 | 结构 | 用途 |
+| --- | --- | --- | --- | --- |
+| `OmniRing-1.40.0-signed-legacy.apk` | `70705b8dfb977c251e13e060ca58a4b6` | 4,722,279 B | 442 entries，`META-INF/xposed` **0 条** | **上架这份** |
+| `OmniRing-1.40.0-signed.apk` | `b30d4c69080b2725351228267a984557` | 4,722,612 B | 444 entries，`META-INF/xposed` **2 条** | 日常机 / 自己的手机 |
+
+我独立回读（不采信脚本自己的话）：两份 `apksigner verify --print-certs` 都是
+**V2 signer，SHA-256 `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b`**
+（= `E:\dev\keys\omniring-release-key-fingerprint.txt` 里的正式指纹）；
+`aapt2 dump badging` 都是 `io.github.tvtjiesen.omniring` / `versionCode 51` / `1.40.0` / 「万能变焦环」；dex 戳都是 `cfg46`。
+**所以签名这关已经过了，剩下只有下面 ①~④ 四个网页操作。**
+
+（历史：11-01 那两份 `-beta-signed` 包确实丢过一次，`release_sign_report.txt` 里留着它们 md5 `d750e303…` / `dbd148d0…`；
+旧的 `build/OmniRing-1.40.0.apk` / `-legacy.apk` 是**调试签名**，别再拿去发。）
 
 **① 提交 issue**（仓库 `Xposed-Modules-Repo/submission`，标题一字不差）：
 

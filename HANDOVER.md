@@ -101,13 +101,18 @@
   `22:2F:C2:90:A5:AD:E9:39:8B:01:00:E9:68:31:27:11:82:86:F5:E1:45:DE:C6:81:B5:7A:E9:89:19:45:BC:1B`
   （公开，可写进发布说明；口令只有业主知道）。复核：`tools\make_key.bat` → `--fingerprint`。
 - **打正式包 = 双击 `tools\sign_key.bat`**（弹框输一次口令 → 两份 release → 自己用 `apksigner` 回读并核对指纹，对不上会拦住"别发"）。
-- **现在 `build/` 里那两份还是回落调试签名**：`OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与
-  `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`，测试者/上架用这份）→ **上架前必须重签一次**。
+- **2026-11-02 20:09 已重签出包**（业主本人双击，口令没过我手）：
+  `build/OmniRing-1.40.0-signed.apk`（md5 `b30d4c69080b2725351228267a984557`，444 entries，`META-INF/xposed` 2 条）
+  与 `build/OmniRing-1.40.0-signed-legacy.apk`（md5 `70705b8dfb977c251e13e060ca58a4b6`，442 entries，0 条）；
+  我独立用 `apksigner` 回读，两份 **V2 signer SHA-256 = `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b`（= 正式指纹）**，
+  `aapt2` 均 `io.github.tvtjiesen.omniring` / versionCode 51 / 1.40.0 / 「万能变焦环」，dex 戳 `cfg46`。**上架用 legacy 那份。**
+- `build/OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与 `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`）是旧的**调试签名**产物，别再拿去发。
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
   **2026-11-02 刷新**：当前 tag 是 **`51-1.40.0`**（versionCode 已从 50 抬到 51），附件名 `OmniRing-1.40.0-signed-legacy.apk`；
   `assembleRelease` 两种变体都已从当前源码验过能出（`build/rc_dual.apk` / `build/rc_legacy.apk`，dex 戳 `cfg46`），
-  但**磁盘上没有任何正式签名的包**——`build/` 里 11-01 那两份 `-beta-signed` 已丢失，上架前必须重新双击 `tools\sign_key.bat`。
-  商店方图用 `python tools/gen_store_icon.py` 出（`build/store_icon_512.png`，与 APK 自适应图标同一份几何）。
+  正式签名包已于 2026-11-02 20:09 出好（见上一条，md5 `70705b8d…`），**下一步只剩提 issue + 建 release 两个网页操作**。
+  商店方图用 `python tools/gen_store_icon.py` 出（`build/store_icon_512.png`，与 APK 自适应图标同一份几何）；
+  贴上架的三样文案已生成在 `build/store/`（`SUMMARY` / `README.md` / `RELEASE_NOTES.md`）。
 - **HyperOS 3 一句话口径**：代码侧 9 条能证死的已证死（`docs/HYPEROS3-SELFCHECK.md` §1），
   但**没有任何 OS3 真机正向证据**，所以 `TESTED_MIN_SDK` 保持 37、适配卡在 OS3 显示 WARN/部分适配。
   商店 README 只写「HyperOS 4 已实测」，别替 OS3 吹。
