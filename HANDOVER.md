@@ -144,6 +144,14 @@
 - 自建虚拟机 `bench_a15`（A15/x86_64/Magisk + LSPosed v1.11.0）：启动要 `ANDROID_AVD_HOME="E:/dev/avd_home"` + `nohup ... &`；**adb 拿不到 root**（`su` 被拒），所以只能整机重启（`adb reboot` 会把 emulator 进程带走，要再手动拉起）；没有变焦环传感器，日志里 `Gave up waiting for SensorService` 是预期。它的用途就一个：模拟"老版本 LSPosed"。
 - PowerShell 侧两个坑（都踩过）：`.ps1` 必须 **UTF-8 BOM**，否则中文注释让解析器崩；原生 exe 的 `-storepass:file` 这类带冒号参数要用**数组 splat**，直接写会"意外的标记"。
 
+- **DSH 侧 pinned bash 缺 `cygpath`/`md5sum`（2026-11-02 实测，会假装成功）**：那套 MSYS2 的
+  `/usr/bin` 里两样都没有，直接跑 `./gradlew` 会 `cygpath: command not found` → `exec: : not found`，
+  **可退出码仍是 0**（管道把状态喂给了 `tail`）——看着 BUILD 成功，其实一条测试都没跑。
+  修法一行：`export PATH="/e/dev/msys64/usr/bin:$PATH"`（`cygpath`/`md5sum`/`sha256sum` 都在那）。
+  跑基线务必 `:app:testDebugUnitTest --rerun`，再读
+  `app/build/test-results/testDebugUnitTest/*.xml` 里的 `tests/failures` 计数；
+  `UP-TO-DATE` 的 `BUILD SUCCESSFUL` **不是**证据。本次实测 `tests=219 failures=0 errors=0 skipped=0`。
+
 ## 11. Git 与许可纪律
 
 - 只做本地提交，**不 push**（业主明令）；提交信息写"为什么"，带实测证据；不要改他的全局 git 配置。
