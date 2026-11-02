@@ -120,6 +120,11 @@
   附件 `OmniRing-1.40.0-signed-legacy.apk`（4,722,279 B，`state=uploaded`）。
   **唯一没做完的**：仓库描述（About → Description `OmniRing 万能变焦环`、Website 源码地址）**只能浏览器里填**，
   REST `PATCH /repos/…` 因 maintain≠admin 回 404，机器人公告也写明"API 没权限、必须在浏览器做、不填描述就永远不出现"。
+  **→ 2026-11-02 20:36:58 业主已在浏览器填好**（`description = "OmniRing 万能变焦环"`、`homepage = 源码地址`，agent 回读确认）⇒
+  机器人两个必要条件（描述非空 + 至少一条 release）**全部满足，60 分钟倒计时从 20:36:58 起算**。
+  踩坑记录：业主第一次填到了**源码仓库** `TvTjiesen/OmniRing`（不是商店读的那个组织仓库），两处描述要分开填。
+  验收只能在他手机上做（LSPosed 管理器 → 仓库 → 搜 `omniring`）；本机到 `modules.lsposed.org` 被 TencentEdgeOne 回 **403 空体**，
+  换 allorigins / r.jina.ai 代理也不通 ⇒ **agent 侧无法直读商店 JSON**。
 - **HyperOS 3 一句话口径**：代码侧 9 条能证死的已证死（`docs/HYPEROS3-SELFCHECK.md` §1），
   但**没有任何 OS3 真机正向证据**，所以 `TESTED_MIN_SDK` 保持 37、适配卡在 OS3 显示 WARN/部分适配。
   商店 README 只写「HyperOS 4 已实测」，别替 OS3 吹。
