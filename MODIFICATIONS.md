@@ -293,3 +293,34 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
 219 条断言 0 失败、四语 234/234 对齐、`aapt2` 回读包名/版本号、dex 里的 `cfg45` 戳、
 两份的 `META-INF/xposed` 差别（2 个 vs 0 个）。真机上是上一个 `cfg44`，那版装机验证过
 （探针 `build=cfg44`、心跳带新签名、`recv` 从开机早期 NPE 变 `ok`）。
+
+## 第十三批（2026-11-02）· 表冠统一逻辑（四槽位 → 两槽位）设计稿
+
+**本轮只出设计，未改一行功能代码。** 业主 2026-11-01 提出"表冠统一逻辑"，
+先出设计第一版供他修改。新增 `docs/CROWN-ACTION-V2-DESIGN.md`：把「转向 × 转速」四槽位
+（`CW_SLOW`/`CW_FAST`/`CCW_SLOW`/`CCW_FAST`）塌成只看转向的两槽位（`PLUS`/`MINUS`），
+转速从"决定执行哪个动作"降级为"只决定幅度"。
+
+**病灶判据（源码行，不是推测）**：两个各自独立的分类器都以"每样本瞬时速度"决定槽位 ——
+传感器路 `hook/SensorRingDriver.kt:128-137`（`fast = abs(velUnitsPerSec) > FAST_UNITS_PER_SEC`）、
+输入路 `ring/ZoomRingDetector.kt:11-31`（200ms 窗口 `count > speedThreshold`）。
+速度在阈值上下抖动 → 相邻样本落到不同槽位 → 两个动作交替执行 = 他报的"音量/滑动概率冲突"；
+某一格没配时 `resolveActionId(...) ?: return`（`SensorRingDriver.kt:178`、
+`InputInterceptorHook.kt:347`）当场丢样本 = "音量只能降不能升"。
+而"转速只影响幅度"**今天已经成立**（离散动作 `discreteAccum += abs(velUnitsPerSec)/60f`
+＋ `DISCRETE_STEP_UNITS` ＋ 60ms 节流，`SensorRingDriver.kt:271-276`），所以本设计**不碰幅度数值**。
+
+**迁移策略**：不迁移、只读时兼容 —— 沿用 `ConfigManager.kt:17-20` `migrateActionId` 的既有模式，
+新键 `gesture_{PLUS,MINUS}_*`（三分作用域同形）读取时三级回落 `…PLUS… → CW_SLOW → CW_FAST`、
+`…MINUS… → CCW_SLOW → CCW_FAST`；写只写新键，旧 4 键**只读不删**（退回旧版行为不变）。
+设计里点名三个必须提前挡住的陷阱：`DefaultMapping.shouldSeed` 必须走同一条回落链
+（否则老用户升级后被重新种上 `scroll`，冲掉自定义映射）、`removeConfiguredPackage` 要清 6 份键、
+配置推送给钩子是整份 `p.all`（`util/ConfigPush.kt:75`）所以两侧回落链行为一致。
+
+对外契约影响仅三处且都可控：心跳第 4 段 `gesture` 词汇 4→2（字段数/顺序/分隔符全不变）、
+探针 `hzr_map`/`hzr_cfg` 行文随之、四语 strings 由删 4 增 2（234 → 226）。
+`tools/deploy_verify.sh` 不用改（只读键、不比字符串）。16 个动作 id 一个不动；
+`Action` 接口新增 `directional`（默认 true），`LaunchAppAction` 覆盖为 false 即被排除出两槽位。
+
+**待业主拍板 6 点**（设计稿 §8）：旧"快慢不同配"取哪条 / 旧 `launch_app` 回落成滚动还是不动作 /
+两槽位出厂默认值 / 界面文案 / 幅度是否同轮改 / 方向翻转是否清零离散累计。
