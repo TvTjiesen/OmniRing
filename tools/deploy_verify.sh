@@ -17,6 +17,10 @@ ADB=${ADB:-/e/dev/android-sdk/platform-tools/adb.exe}
 SER=${SER:?要带 -s 的设备串号，例如 SER=你的串号}
 APK=${APK:-E:/dev/hzr/app/build/outputs/apk/debug/app-debug.apk}
 PKG=io.github.tvtjiesen.omniring
+# applicationId ≠ Kotlin namespace：真 Activity 是 xyz.nextalone.hyperzoomring.ui.MainActivity，
+# 写成 $PKG.ui.MainActivity 会 `Error type 3 ... does not exist` 且被 >/dev/null 吞掉、
+# 于是"先拉起来免得 ksu 域 stat 不到 /data/data"那步**静默失效**（2026-11-02 实测）。
+ACT=$PKG/xyz.nextalone.hyperzoomring.ui.MainActivity
 PREFS=/data/data/$PKG/shared_prefs/hyperzoomring_config.xml
 TMP_DEV=/data/local/tmp/hzr_prefs_restore.xml
 NO_REBOOT=0
@@ -50,7 +54,7 @@ A=$(hb_now); sleep 10; B=$(hb_now)
 say "恢复手势映射（先停 App，免得它用内存里的旧快照盖回来）"
 # App 开机后没跑过时，ksu 域连它的 /data/data 都 stat 不到（实测报 No such file，
 # 起来一次之后又能看见）—— 所以先拉起来一下再停掉，路径才稳定
-out "am start -n $PKG/$PKG.ui.MainActivity" >/dev/null
+out "am start -n $ACT" >/dev/null
 sleep 4
 out "am force-stop $PKG" >/dev/null
 sleep 1
@@ -172,7 +176,7 @@ done
 case "$STATE" in
   ""|null|0\;*)
     say "推送还没到：打开一次 App 就会推"
-    out "am start -n $PKG/$PKG.ui.MainActivity" >/dev/null
+    out "am start -n $ACT" >/dev/null
     sleep 5
     STATE=$(run "settings get global hzr_cfg_state")
     echo "  再读：$STATE"

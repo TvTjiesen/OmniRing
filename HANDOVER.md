@@ -106,19 +106,30 @@
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
 - 包名迁移代价（对外的硬事实）：`1.39` 及之前是 `xyz.nextalone.hyperzoomring`，两个 ID **互不覆盖**；老用户要先在 LSPosed 关掉旧模块再卸载。App 首页有警示卡，装机脚本会备份/还原 prefs。给测试者的那份已经写了这条。
 
-## 8. 未完成的活（含一条业主已提但**还没批设计**的）
+## 8. 未完成的活
 
 **A. 表冠统一逻辑改造（结构性）** —— 业主 2026-11-01 提出：取消 `顺时针/逆时针 × 快转/慢转` 四槽位，改成"动作随表冠转向定正负"。
 讨论中他**已拍两条**：① 无方向的动作（启动指定应用）**直接不支持**；② 转速**只影响幅度**、不再决定是哪个动作。
 两条 bug 很可能随之消失（"音量/亮度与滑动概率冲突"来自速度阈值上下反复穿越导致两个槽位交替触发；"音量只能降不能升"来自某侧槽位没配）。
 我给的方案是 B（新增 `CrownAction(plus, minus)` 一层，底层 16 个动作 id 不动），并给了迁移与测试设计。
-**注意：设计还没得到他批准 → 不许开工**（brainstorming 的硬闸门）。重启这个话题时先复述设计让他点头，再写 spec。
+**✅ 2026-11-02 这条链已走完**：设计第一版 `docs/CROWN-ACTION-V2-DESIGN.md`（提交 `f685b65`）→ 他回
+「全部听你的」= 设计稿 §8 六个待拍板点**全按我的推荐批准** → 实现 + 自测 + 真机验收（提交 `09a2e38`，
+`cfg46` 在 system_server 里跑通，细节见 `MODIFICATIONS.md` 第十四批）。
+最终口径：无方向动作（启动应用）**从选择器消失**；转速**只喂 `currentIntensity` 幅度**、不再选槽位；
+离散累计抽成 `ring/DiscreteAccum.kt` 且**方向翻转即清零**；旧四键**只读不删**（回落链
+`PLUS→CW_SLOW→CW_FAST`、`MINUS→CCW_SLOW→CCW_FAST`），`launch_app` 读时归一成 `scroll`。
+**唯一没验的**：App 两槽位界面与一次性合并提示的**肉眼**确认（截图拍到的都是锁屏/通知栏）——请业主看一眼手机。
 按这个改还可能顺带解决 #58/#59/#70 一部分，但那是推断，别当结论。
 
 **B. 待复现/待修的已知问题**（这些都需要业主给一次触发条件，或按 §2 先测量再改一处）：
 #42 旋钮小概率回跳/瞬移 · #43 视频进度概率性卡在某一值 · #59 滚动被识别成点击（微博误开条目） · #70 沉浸态容易误触退出 · #72 诊断页事件总数一直为 0 · #78 第三方 App 内需要"真实触摸"信号 · #83 右上角按钮实时模糊（用热调 A/B 判，别猜） · #74 参照 HyperOS 规范重写深色主题 · #12 收尾（性能/残留） · #60 18 个动作逐天真机体检。
 
-**C. 装机验证欠账**：`cfg45` 只做了离线核验（**没在真机上跑过**），真机上现在是 `cfg44`（那版装机验证过：`build=cfg44`、心跳带新签名、`recv` 从开机 NPE 变 `ok`）。插上电第一件事就是跑 §3 的 `deploy_verify.sh`。
+**C. 装机验证欠账：✅ 已清（2026-11-02）**。`cfg45` 从未上过他的手机，它被 `cfg46` 直接取代：
+`bash build/make_and_run.sh`（绕 §10 的环境变量坑，串号写死）跑完 `tools/deploy_verify.sh`，退出码 0，
+三条正面证据齐全——**装机 md5 一致** `e150334568322a3ed77f898a9ac8e91e`、**`system_server` 重启后心跳带新签名**
+`base.apk|47158549|1793595760235;…`、**探针回显 `build=cfg46`**；配置推送通道也验了（`hzr_map` 回显映射、
+`hzr_cfg` 回显 `pushed=1 keys=12 … reg=ok`）。设备 prefs 里新两键 + 旧四键全 `scroll`，`legacy_notice_shown`
+未写 ⇒ 下次启动 App 会弹一次性合并提示。
 
 **D. 别再做**：宣传图/海报（他叫停了）；性能基线拿 debug 包量（R8 后 4.7 MB vs debug 47 MB， debug 量出来的数没意义）。
 
@@ -152,16 +163,45 @@
   `app/build/test-results/testDebugUnitTest/*.xml` 里的 `tests/failures` 计数；
   `UP-TO-DATE` 的 `BUILD SUCCESSFUL` **不是**证据。本次实测 `tests=219 failures=0 errors=0 skipped=0`。
 
+- **DSH 的 win_bash 通道不把环境变量传给子进程（2026-11-02 实测，浪费了一小时）**：我敲的命令里
+  `VAR=value cmd` 前缀会被通道吃掉；脚本内 `export VAR=…` 只对**同一个** shell 有效，
+  fork 出去的子进程一概拿不到（连 `PATH` 前缀也丢：探针打印 `3 forked child SER=[]`）。
+  `( exec env VAR=v bash -c 'echo $VAR' )` 能传（B2），`( exec bash -c … )` 不能。
+  ⇒ 凡是要给脚本传参（`SER=…`）、或要改子进程 PATH 的，**别指望环境变量**：
+  用 `bash build/make_and_run.sh` —— 它把 `tools/deploy_verify.sh` sed 成
+  `build/deploy_verify_run.sh`（串号写死、`python` 换成 `/c/Users/*/AppData/Local/Python/bin/python` 绝对路径）再跑。
+- `adb pull`/`push` 的本地路径要写 **Windows 形式**（`E:/dev/hzr/build/x.xml`）；`/e/...` 会
+  `cannot create file/directory: No such file or directory`。`adb shell` 里的 `/sdcard/...` 照旧配 `MSYS_NO_PATHCONV=1`。
+- **applicationId ≠ Kotlin namespace**：真启动项是
+  `io.github.tvtjiesen.omniring/xyz.nextalone.hyperzoomring.ui.MainActivity`；
+  写 `$PKG.ui.MainActivity` 会 `Error type 3 ... does not exist`（`tools/deploy_verify.sh` 里那两处
+  `am start` 因此静默失败很久，2026-11-02 已修成 `$ACT`）。`cmd package resolve-activity --brief $PKG` 可查。
+- 取证小坑：屏幕 `mWakefulness=Dozing` 或 `mCurrentFocus=…NotificationShade` 时，`screencap` 拍到的
+  是锁屏/通知栏而不是 App；先 `input keyevent 224` + `input keyevent 4` + `cmd statusbar collapse`，
+  并且**别去输锁屏 PIN**。
+
 ## 11. Git 与许可纪律
 
 - 只做本地提交，**不 push**（业主明令）；提交信息写"为什么"，带实测证据；不要改他的全局 git 配置。
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-01 16:40 左右）
+## 12. 此刻状态快照（2026-11-02 13:10 左右）
 
-- 工作树干净，`HEAD = 69a7526`（`1.40.0 / versionCode 51 / cfg45`）。测试 219 条 0 失败，四语 234/234。
-- 业主手机**当前离线**；最后一次确认的状态：装的是 `cfg44` 调试包、新包名、配置已从旧包名 1:1 迁过来、`hzr_snapshot` 里 `module_enabled true`；调试键已清（`hzr_probe`/`hzr_entry`/`hzr_debug` 回读 null）。
-- 我在这台机上留下的一处**自己的失误已修复并如实记录**：一次装机脚本里变量名撞了 bash 只读内建 `UID`，把新包的 prefs 写空并改了属主 → 已按"只覆盖内容、保留 inode 与 SELinux 标签"的方式修好，旧包配置全程未动。教训写进 §2/§3：**改共享配置文件的脚本，变量名别用 `UID`/`PATH`/`HOME` 这类只读内建**。
-- 待业主做（不需要你）：把 `OmniRing-1.40.0-legacy.apk` 发给酷友测 OS3；上架前双击 `sign_key.bat` 重签；商店 issue 用他的 GitHub 账号开。
-- 待你做：他手机插上后第一件事跑 `tools/deploy_verify.sh` 把 `cfg45` 的三条正面证据补齐；表冠统一逻辑**等他把设计点头**再动。
+- 工作树干净；提交链 `09a2e38`（**表冠统一逻辑 v2 实现**，四槽位→两槽位）← `f685b65`（设计稿）
+  ← `9f75343`（§10 环境坑）← `67c9196`（交接文档），本轮再追加一个文档/工具提交（P2 验收证据 +
+  `deploy_verify.sh` 活动类名修复 + §10 新坑）。单测 **239 条 0 失败**（基线 219），四语 **235/235**。
+- 业主手机**在线**：`c05bb07c`（nezha / 25128PNA1C / SDK 37，KernelSU root）。**真机上早已不是 cfg44**：
+  2026-11-02 13:05 装上并验过 **`cfg46`** 调试包（md5 `e150334568322a3ed77f898a9ac8e91e`、探针 `build=cfg46`、
+  心跳带新签名）；设备 prefs 里新两键 + 旧四键全 `scroll`，`legacy_notice_shown` 未写 ⇒ 下次启动 App 弹合并提示；
+  `hzr_scrub_y=0.27` 未动。
+- **没验的一项**：App 两槽位界面与合并提示的**肉眼**确认（本轮截图拍到的都是锁屏/通知栏，
+  当前模型也没有图像输入能力）。
+- 待业主做：① 给 `hzr_scrub_y` 一句话定案（我的建议：他机 0.27 与代码默认/README 0.45 **两者都保持现状**）；
+  ② 决定是否重打 `build/OmniRing-1.40.0*.apk`（正式签名要他双击 `sign_key.bat`，口令只有他知道）；
+  ③ 老样子：`OmniRing-1.40.0-legacy.apk` 发酷友测 OS3、商店 issue 用他账号开。
+- 待你做（下一步候选）：§8B 的 bug 复现（多数要业主给触发条件）；HyperOS 3 回执跟进；
+  两槽位界面肉眼复验（等业主）。
+- 历史（2026-11-01 16:40，已被上面取代）：HEAD `69a7526` / 装 `cfg44` / 测试 219 条 / 四语 234；
+  以及那次 `UID` 只读内建撞名事故的修复记录（教训仍在 §2/§3：改共享配置文件的脚本，
+  变量名别用 `UID`/`PATH`/`HOME` 这类只读内建）。

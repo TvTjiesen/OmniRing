@@ -388,4 +388,27 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
 - `python tools/i18n_check.py` → `values=235 values-b+zh+Hant=235 values-en=235 values-ru=235` OK。
 - debug APK：`app/build/outputs/apk/debug/app-debug.apk` md5 `e150334568322a3ed77f898a9ac8e91e`，
   939 entries，`META-INF/xposed` 2 条，dex 里带 `cfg46` 戳 —— 这份就是 `tools/deploy_verify.sh` 会推的包。
-- **本轮只本地提交，未 push。真机验收（P2）等 17 Ultra（`c05bb07c`）接上再做。**
+- **本轮只本地提交，未 push。**
+
+### 真机验收 P2（2026-11-02，小米 17 Ultra `c05bb07c`，HyperOS 4 / SDK 37）
+
+`bash build/make_and_run.sh`（= `tools/deploy_verify.sh` 的副本：串号写死、python 换绝对路径，
+因为 DSH 的 win_bash 通道不向子进程传环境变量，见 HANDOVER §10）退出码 **0**，全套通过：
+- 空闲检查通过（10 秒两次心跳一致）；恢复映射回读 **6 键全 `scroll`**（新两键 + 旧四键）——
+  回落链与 `restore_prefs.py` 的 6 条 `MAPPING` 在真机生效；总开关 `true`。
+- 装机 md5 与本地一致 `e150334568322a3ed77f898a9ac8e91e`。
+- `system_server` 重启 `5328 → 18151` 后**模块带新签名起来**：心跳 `base.apk|47158549|1793595760235;0;0;;;0;0;0/0`。
+- 探针回显 **`build=cfg46`**（`entry=modern102 … runtime=started=true ctx=ok cfg=ok recv=ok`）
+  ⇒ system_server 里跑的就是本轮代码，不是旧包。
+- 配置通道：`hzr_map` = `PLUS:volume_up|MINUS:-`、`hzr_cfg` = `pushed=1 keys=12 src=snapshot … reg=ok` ⇒ 推送通。
+- 验收脚本已清掉调试键（`hzr_probe/hzr_map/hzr_cfg/hzr_debug/hzr_entry/hzr_inj`）；
+  **热调参数未动：`hzr_scrub_y=0.27`**。
+- 验收后读回设备配置（转存 `build/p2_prefs_after.xml`，981 B）：新两键与旧四键全 `scroll`、`module_enabled=true`、
+  `defaults_seeded=true`、`dispatch_mode=global`、`per_app_configured_packages=com.mfcloudcalculate.networkdisk`；
+  **`legacy_notice_shown` 尚未写入**（4 个旧键仍在 ⇒ 下次启动 App 应弹出一次性合并提示——UI 层未肉眼验证。
+- **未能取证的一项**：App 界面截图没拿到——`exec-out screencap` 拍到的一直是锁屏/通知栏
+  （`mCurrentFocus=Window{… NotificationShade}`、`mWakefulness=Dozing`），`uiautomator dump` 只看到锁屏文本；
+  本次模型没有图像输入能力。两槽位文案与合并提示的**界面**验证仍需业主看一眼手机。
+- 顺带修掉一个静默 bug：`tools/deploy_verify.sh` 里 `am start -n $PKG/$PKG.ui.MainActivity`（两处）
+  因为 applicationId ≠ Kotlin namespace 一直 `Error type 3` 失败且输出被丢进 /dev/null，
+  已改为 `$ACT=$PKG/xyz.nextalone.hyperzoomring.ui.MainActivity`。
