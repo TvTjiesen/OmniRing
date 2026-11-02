@@ -442,3 +442,7 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
   两份 `apksigner verify --print-certs` 均为 **V2 signer / SHA-256 `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b`**
   （= 正式证书指纹，我独立回读、不采信脚本自述），`aapt2` 仍是 `io.github.tvtjiesen.omniring` / 51 / 1.40.0，
   dex 戳 `cfg46`。**签名关已过，剩下的只有提 issue 与建 release 两个网页操作。**
+- **同日 20:24 商店提交已由 agent 代做完毕**（`gh` CLI、业主账号，业主授权「你可以操作我的电脑」）：
+  issue `#2407` → 仓库 `Xposed-Modules-Repo/io.github.tvtjiesen.omniring` 建成 → 邀请 `341041488` 接受 →
+  `SUMMARY` + `README.md` 推送（无源码）→ Release `51-1.40.0` 带 legacy 附件上传成功。
+  **仓库描述仍需业主在浏览器填**（REST 无权限，机器人明确要求），不填则商店不收录。

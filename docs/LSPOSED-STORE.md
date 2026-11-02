@@ -159,9 +159,27 @@
 （= `E:\dev\keys\omniring-release-key-fingerprint.txt` 里的正式指纹）；
 `aapt2 dump badging` 都是 `io.github.tvtjiesen.omniring` / `versionCode 51` / `1.40.0` / 「万能变焦环」；dex 戳都是 `cfg46`。
 **所以签名这关已经过了，剩下只有下面 ①~④ 四个网页操作。**
+（20:24 更新：①~③ 已由我用 `gh` 全部做完，只剩 ④ 里"填仓库描述"那一格 —— 见本节下方"实际提交完毕"表。）
 
 （历史：11-01 那两份 `-beta-signed` 包确实丢过一次，`release_sign_report.txt` 里留着它们 md5 `d750e303…` / `dbd148d0…`；
 旧的 `build/OmniRing-1.40.0.apk` / `-legacy.apk` 是**调试签名**，别再拿去发。）
+
+**✅ 2026-11-02 20:21–20:24 已由 agent 用 `gh`（业主账号 `TvTjiesen`，`repo` scope）实际提交完毕**：
+
+| 步骤 | 结果 |
+|---|---|
+| submission issue | [`Xposed-Modules-Repo/submission#2407`](https://github.com/Xposed-Modules-Repo/submission/issues/2407)（已由机器人自动关闭） |
+| 机器人建仓库 | `Xposed-Modules-Repo/io.github.tvtjiesen.omniring`（main 分支，12:21:47Z） |
+| 维护者邀请 | id `341041488`，已用 `gh api -X PATCH user/repository_invitations/341041488` **接受**；权限从 `pull` 变 `maintain+push` |
+| 仓库文件 | `SUMMARY`（99 B）、`README.md`（1809 B）已推上去；**未传源码**（机器人明说不要） |
+| Release | tag **`51-1.40.0`** / title `1.40.0` / 附件 **`OmniRing-1.40.0-signed-legacy.apk`（4,722,279 B，`state=uploaded`）** |
+| 仓库描述 / Home Page | ⛔ **API 改不了**（`PATCH /repos/…` 回 404 —— maintain 不是 admin）。机器人公告原文：*"Make sure you're not leaving the GitHub repository description blank … **DO IT IN WEB BROWSER, API DON'T HAVE ENOUGH PERMISSION TO SET IT, WHOEVER IGNORE THIS, YOU HAVE BEEN WARNED**"* |
+
+**所以只剩浏览器里填一格**：仓库首页右上 About 的 ⚙ → Description 填
+`OmniRing 万能变焦环`、Website 填 `https://github.com/TvTjiesen/OmniRing` → 保存。
+不填描述，仓库**永远不会**出现在商店（机器人只等这一项 + 至少一条 release）。
+
+剩下的**历史操作顺序**（保留备查）：
 
 **① 提交 issue**（仓库 `Xposed-Modules-Repo/submission`，标题一字不差）：
 

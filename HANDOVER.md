@@ -113,6 +113,13 @@
   正式签名包已于 2026-11-02 20:09 出好（见上一条，md5 `70705b8d…`），**下一步只剩提 issue + 建 release 两个网页操作**。
   商店方图用 `python tools/gen_store_icon.py` 出（`build/store_icon_512.png`，与 APK 自适应图标同一份几何）；
   贴上架的三样文案已生成在 `build/store/`（`SUMMARY` / `README.md` / `RELEASE_NOTES.md`）。
+- **2026-11-02 20:21–20:24 商店提交已做完**（agent 用 `gh`、业主账号 `TvTjiesen`、`repo` scope）：
+  submission issue [#2407](https://github.com/Xposed-Modules-Repo/submission/issues/2407)（机器人已自动关）→
+  仓库 `Xposed-Modules-Repo/io.github.tvtjiesen.omniring` 建成 → 维护者邀请 `341041488` 已 `PATCH` 接受（权限 `pull` → `maintain+push`）→
+  `SUMMARY`(99 B) / `README.md`(1809 B) 已推（未传源码）→ Release tag **`51-1.40.0`** / title `1.40.0` /
+  附件 `OmniRing-1.40.0-signed-legacy.apk`（4,722,279 B，`state=uploaded`）。
+  **唯一没做完的**：仓库描述（About → Description `OmniRing 万能变焦环`、Website 源码地址）**只能浏览器里填**，
+  REST `PATCH /repos/…` 因 maintain≠admin 回 404，机器人公告也写明"API 没权限、必须在浏览器做、不填描述就永远不出现"。
 - **HyperOS 3 一句话口径**：代码侧 9 条能证死的已证死（`docs/HYPEROS3-SELFCHECK.md` §1），
   但**没有任何 OS3 真机正向证据**，所以 `TESTED_MIN_SDK` 保持 37、适配卡在 OS3 显示 WARN/部分适配。
   商店 README 只写「HyperOS 4 已实测」，别替 OS3 吹。
