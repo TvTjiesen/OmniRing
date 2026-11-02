@@ -15,7 +15,7 @@ import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.config.SceneType
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /** 「场景」页：媒体播放 / 手电筒 / 全屏 三个场景入口 */
 @Composable
@@ -30,7 +30,7 @@ fun SceneListScreen(
     Page(pagePadding = pagePadding, modifier = modifier) {
         item { SectionTitle(stringResource(R.string.scene_config), top = true) }
         items(SceneType.entries.toList(), key = { it.name }) { scene ->
-            val configuredCount = GestureType.entries.count { gesture ->
+            val configuredCount = CrownDir.entries.count { gesture ->
                 config.getSceneActionId(scene, gesture) != null
             }
             Card(modifier = Modifier.padding(bottom = 8.dp)) {

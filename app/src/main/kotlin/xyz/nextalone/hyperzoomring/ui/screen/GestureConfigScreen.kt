@@ -21,12 +21,12 @@ import xyz.nextalone.hyperzoomring.action.ActionRegistry
 import xyz.nextalone.hyperzoomring.action.actions.LaunchAppAction
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.config.ConfigScope
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /** 某个手势槽位选动作 */
 @Composable
 fun GestureConfigScreen(
-    gestureType: GestureType,
+    gestureType: CrownDir,
     scope: ConfigScope = ConfigScope.Global,
     modifier: Modifier = Modifier,
     pagePadding: PaddingValues = pagePaddingDefault(),

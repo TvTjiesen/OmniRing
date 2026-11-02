@@ -66,7 +66,7 @@ import xyz.nextalone.hyperzoomring.config.DefaultMapping
 import xyz.nextalone.hyperzoomring.config.ConfigScope
 import xyz.nextalone.hyperzoomring.config.SceneType
 import xyz.nextalone.hyperzoomring.util.ConfigPush
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 import xyz.nextalone.hyperzoomring.ui.screen.AppGestureOverviewScreen
 import xyz.nextalone.hyperzoomring.ui.screen.AppListScreen
 import xyz.nextalone.hyperzoomring.ui.screen.CreditsScreen
@@ -78,6 +78,7 @@ import xyz.nextalone.hyperzoomring.ui.screen.LanguageScreen
 import xyz.nextalone.hyperzoomring.ui.screen.ModeConfigScreen
 import xyz.nextalone.hyperzoomring.ui.screen.SceneGestureOverviewScreen
 import xyz.nextalone.hyperzoomring.ui.screen.SceneListScreen
+import xyz.nextalone.hyperzoomring.ui.screen.LegacyMergeDialog
 import xyz.nextalone.hyperzoomring.ui.LocalNavBarVisible
 import xyz.nextalone.hyperzoomring.ui.LocalPageSlot
 import xyz.nextalone.hyperzoomring.ui.screen.SettingsScreen
@@ -96,7 +97,7 @@ sealed class Screen {
     data object Diagnostic : Screen()
     data object ModeConfig : Screen()
     data object Language : Screen()
-    data class GestureConfig(val gesture: GestureType, val scope: ConfigScope) : Screen()
+    data class GestureConfig(val gesture: CrownDir, val scope: ConfigScope) : Screen()
     data class AppGestureOverview(val packageName: String) : Screen()
     data class SceneGestureOverview(val scene: SceneType) : Screen()
 }
@@ -120,6 +121,12 @@ class MainActivity : ComponentActivity() {
         // 全新安装（或 App 数据被清）时四个槽位全空，钩子拿到空映射就是"转环没反应"，
         // 所以推送之前先种一次默认映射（只种一次，见 DefaultMapping）
         runCatching { DefaultMapping.seedIfNeeded(ConfigManager.fromContext(this)) }
+        // 四槽位时代把"快转/慢转"分开配过的老存档，只提示一次合并规则，**不改任何配置**：
+        // 旧键原样留着，读取时由 ConfigManager 的回落链兜住（见 docs/CROWN-ACTION-V2-DESIGN.md §3）。
+        val legacyNoticeDue = runCatching {
+            val cfg = ConfigManager.fromContext(this)
+            cfg.hasLegacySlots() && !cfg.legacyNoticeShown
+        }.getOrDefault(false)
         // 把配置推给 system_server：它读不到我们的私有 prefs 文件，
         // 不推的话改了手势要重启框架才生效（ConfigPush 里还有"监听写入即推"和"开机被问就答"两条）
         ConfigPush.attach(this)
@@ -143,6 +150,7 @@ class MainActivity : ComponentActivity() {
                 val tagline = stringResource(R.string.app_tagline)
                 var splash by remember { mutableStateOf(savedInstanceState == null && !SplashLaunch.played) }
                 SplashLaunch.played = true
+                var showLegacyNotice by remember { mutableStateOf(legacyNoticeDue) }
                 Box(Modifier.fillMaxSize()) {
                     MainContent(
                         onThemeChanged = {
@@ -155,6 +163,12 @@ class MainActivity : ComponentActivity() {
                     )
                     if (splash) {
                         LaunchOverlay(title = appName, subtitle = tagline, onDone = { splash = false })
+                    }
+                    if (showLegacyNotice) {
+                        LegacyMergeDialog(onDismiss = {
+                            showLegacyNotice = false
+                            runCatching { ConfigManager.fromContext(context).legacyNoticeShown = true }
+                        })
                     }
                 }
             }

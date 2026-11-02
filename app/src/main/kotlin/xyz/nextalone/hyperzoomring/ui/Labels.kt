@@ -6,22 +6,20 @@ import xyz.nextalone.hyperzoomring.R
 import xyz.nextalone.hyperzoomring.config.DispatchMode
 import xyz.nextalone.hyperzoomring.config.SceneType
 import xyz.nextalone.hyperzoomring.action.Action
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /**
  * 枚举的显示名一律走资源。
  *
- * 枚举本身（GestureType / DispatchMode / SceneType）被 hook 侧和配置键名共用，
+ * 枚举本身（CrownDir / DispatchMode / SceneType）被 hook 侧和配置键名共用，
  * 里面那个 displayName 是硬编码中文 —— 界面如果直接用它，切英文就会漏翻
  * （装机截图就抓到了 "全局模式" 混在英文界面里）。所以界面统一从这里取。
  */
 @Composable
-fun GestureType.label(): String = stringResource(
+fun CrownDir.label(): String = stringResource(
     when (this) {
-        GestureType.CW_SLOW -> R.string.gesture_cw_slow
-        GestureType.CW_FAST -> R.string.gesture_cw_fast
-        GestureType.CCW_SLOW -> R.string.gesture_ccw_slow
-        GestureType.CCW_FAST -> R.string.gesture_ccw_fast
+        CrownDir.PLUS -> R.string.gesture_plus
+        CrownDir.MINUS -> R.string.gesture_minus
     }
 )
 

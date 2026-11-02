@@ -11,6 +11,9 @@ import org.junit.Test
  * 而 YukiHook 那份快照是冻结的（改文件、杀框架、整机重启都读不到新值），
  * XSharedPreferences 这个类在模块 classloader 里根本不存在。
  * 所以配置只能由 App 主动推过来 —— 广播 extras 装不下 Map，只能先编码成一个字符串。
+ *
+ * 键名在这里是不透明字符串（`ConfigPayload` 不认识枚举），用的是新版两槽位键名
+ * （`PLUS`/`MINUS`）：老键名 `gesture_CW_SLOW_*` 只活在读时回落链里。
  */
 class ConfigPayloadTest {
 
@@ -18,7 +21,7 @@ class ConfigPayloadTest {
     fun `五种类型往返不变`() {
         val src = mapOf(
             "language" to "en",
-            "gesture_CW_SLOW_action_id" to "scroll_down",
+            "gesture_PLUS_action_id" to "scroll",
             "theme_mode" to 2,
             "installed_at" to 1_791_809_197_963L,
             "gain" to 1.25f,
@@ -27,7 +30,7 @@ class ConfigPayloadTest {
         )
         val back = ConfigPayload.decode(ConfigPayload.encode(src))
         assertEquals("en", back["language"])
-        assertEquals("scroll_down", back["gesture_CW_SLOW_action_id"])
+        assertEquals("scroll", back["gesture_PLUS_action_id"])
         assertEquals("2", back["theme_mode"])
         assertEquals("1791809197963", back["installed_at"])
         assertEquals("1.25", back["gain"])
@@ -62,8 +65,8 @@ class ConfigPayloadTest {
 
     @Test
     fun `键本身不会被值里的分隔符混淆`() {
-        val src = mapOf("app_com_x_gesture_CW_SLOW_action_id" to "scroll_up")
-        assertEquals("scroll_up", ConfigPayload.decode(ConfigPayload.encode(src))["app_com_x_gesture_CW_SLOW_action_id"])
+        val src = mapOf("app_com_x_gesture_PLUS_action_id" to "scroll")
+        assertEquals("scroll", ConfigPayload.decode(ConfigPayload.encode(src))["app_com_x_gesture_PLUS_action_id"])
     }
 }
 
@@ -72,7 +75,7 @@ class MemoryStoreTest {
 
     private fun store() = MemoryStore(
         mapOf(
-            "gesture_CW_SLOW_action_id" to "scroll_down",
+            "gesture_PLUS_action_id" to "scroll",
             "theme_mode" to "2",
             "module_enabled" to "true",
             "broken_int" to "abc",
@@ -82,7 +85,7 @@ class MemoryStoreTest {
     @Test
     fun `按类型读出推送来的配置`() {
         val s = store()
-        assertEquals("scroll_down", s.getString("gesture_CW_SLOW_action_id", null))
+        assertEquals("scroll", s.getString("gesture_PLUS_action_id", null))
         assertEquals(2, s.getInt("theme_mode", 0))
         assertEquals(true, s.getBoolean("module_enabled", false))
     }
@@ -90,7 +93,7 @@ class MemoryStoreTest {
     @Test
     fun `缺键用调用方默认值——取消映射也要立刻生效`() {
         val s = store()
-        assertEquals(null, s.getString("gesture_CCW_FAST_action_id", null))
+        assertEquals(null, s.getString("gesture_MINUS_action_id", null))
     }
 
     @Test
@@ -103,9 +106,9 @@ class MemoryStoreTest {
     @Test
     fun `钩子侧写入被丢弃`() {
         val s = store()
-        s.putString("gesture_CW_SLOW_action_id", "volume_up")
+        s.putString("gesture_PLUS_action_id", "volume_up")
         s.remove("theme_mode")
-        assertEquals("scroll_down", s.getString("gesture_CW_SLOW_action_id", null))
+        assertEquals("scroll", s.getString("gesture_PLUS_action_id", null))
         assertEquals(2, s.getInt("theme_mode", 0))
     }
 

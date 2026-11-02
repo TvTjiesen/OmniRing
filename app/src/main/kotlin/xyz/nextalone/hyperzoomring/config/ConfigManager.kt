@@ -3,43 +3,72 @@ package xyz.nextalone.hyperzoomring.config
 import android.content.Context
 import android.content.SharedPreferences
 import com.highcapable.yukihookapi.hook.xposed.prefs.YukiHookPrefsBridge
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 import xyz.nextalone.hyperzoomring.ring.ZoomRingConstants
 
 /**
- * 旧存档里的"定方向滚动"归一成"滚动"。
+ * 旧存档里的"定方向滚动"与"启动应用"归一。
  *
- * scroll_up / scroll_down 按用户要求删掉了，但他（以及升级上来的老用户）手机上现存的映射
- * 还写着这两个 id。不归一的话 ActionRegistry 查不到动作，而 SensorRingDriver 是
+ * - `scroll_up` / `scroll_down`：按用户要求删掉了，但他（以及升级上来的老用户）手机上现存的
+ *   映射还写着这两个 id。
+ * - `launch_app`：2026-11-02 起"无方向动作直接不支持"（业主 2026-11-01 拍板），旧存档里
+ *   指向它的槽位一样会解析不出东西。
+ *
+ * 不归一的话 ActionRegistry 查不到动作，而 SensorRingDriver 是
  * `ActionRegistry.get(actionId) ?: return` —— 表冠会当场变成"转了没反应"，
- * 界面上那一格还会显示"未设置"。读配置时就地归一，不需要迁移写回。
+ * 界面上那一格还会显示成已配置。读配置时就地归一，不需要迁移写回。
  */
 internal fun migrateActionId(id: String?): String? = when (id) {
     "scroll_up", "scroll_down" -> "scroll"
+    "launch_app" -> "scroll"
     else -> id
 }
 
+/**
+ * 四槽位时代（≤ cfg45）的槽位名，PLUS / MINUS 各自按次序回落：先老"慢转"，再老"快转"。
+ *
+ * 为什么慢转优先：老存档里快慢两档可以配不同动作。快转那一档是"甩一下"的偶发态，
+ * 慢转才是他日常真在用的 —— 合并时把慢转那档带过来最接近他的实感（业主 2026-11-02 批准）。
+ * 旧键**只读不删**：装回 cfg45 的包，旧映射原样还在，行为瞬间回退。
+ */
+internal val LEGACY_SLOT_NAMES: Map<CrownDir, List<String>> = mapOf(
+    CrownDir.PLUS to listOf("CW_SLOW", "CW_FAST"),
+    CrownDir.MINUS to listOf("CCW_SLOW", "CCW_FAST"),
+)
+
 class ConfigManager private constructor(private val store: PrefsStore) {
 
-    fun getActionId(gesture: GestureType): String? =
-        migrateActionId(store.getString("gesture_${gesture.name}_action_id", null))
+    /**
+     * 读一份映射：新键优先，没有才按 [LEGACY_SLOT_NAMES] 的次序落到旧键上。
+     *
+     * 写永远只写新键（见各 setter）；旧键**只读不删**，装回 cfg45 的包就回退到旧行为，
+     * 不需要任何"迁移写回" —— 迁移一旦写坏，老用户的自定义映射就永久没了。
+     */
+    private fun readSlot(actionPrefix: String, dir: CrownDir, suffix: String): String? {
+        store.getString("${actionPrefix}gesture_${dir.name}_$suffix", null)?.let { return it }
+        LEGACY_SLOT_NAMES.getValue(dir).forEach { legacy ->
+            store.getString("${actionPrefix}gesture_${legacy}_$suffix", null)?.let { return it }
+        }
+        return null
+    }
 
-    fun setActionId(gesture: GestureType, actionId: String?) {
+    fun getActionId(dir: CrownDir): String? = migrateActionId(readSlot("", dir, "action_id"))
+
+    fun setActionId(dir: CrownDir, actionId: String?) {
         if (actionId != null) {
-            store.putString("gesture_${gesture.name}_action_id", actionId)
+            store.putString("gesture_${dir.name}_action_id", actionId)
         } else {
-            store.remove("gesture_${gesture.name}_action_id")
+            store.remove("gesture_${dir.name}_action_id")
         }
     }
 
-    fun getActionConfig(gesture: GestureType): String? =
-        store.getString("gesture_${gesture.name}_action_config", null)
+    fun getActionConfig(dir: CrownDir): String? = readSlot("", dir, "action_config")
 
-    fun setActionConfig(gesture: GestureType, config: String?) {
+    fun setActionConfig(dir: CrownDir, config: String?) {
         if (config != null) {
-            store.putString("gesture_${gesture.name}_action_config", config)
+            store.putString("gesture_${dir.name}_action_config", config)
         } else {
-            store.remove("gesture_${gesture.name}_action_config")
+            store.remove("gesture_${dir.name}_action_config")
         }
     }
 
@@ -58,6 +87,29 @@ class ConfigManager private constructor(private val store: PrefsStore) {
     var defaultsSeeded: Boolean
         get() = store.getBoolean("defaults_seeded", false)
         set(value) = store.putBoolean("defaults_seeded", value)
+
+    /**
+     * 老存档里是否还留着旧四槽（CW_SLOW/CW_FAST/CCW_SLOW/CCW_FAST）的映射 —— 只读探测，不写任何东西。
+     * 三个作用域都查：全局前缀 ""、分应用的 `app_<pkg>_`、分场景的 `scene_<key>_`。
+     * 界面拿它决定要不要弹一次性的"快转/慢转已合并到同一转向"提示（P1）。
+     */
+    fun hasLegacySlots(): Boolean {
+        val prefixes = mutableListOf("")
+        getConfiguredPackages().forEach { prefixes += "app_${it}_" }
+        SceneType.entries.forEach { prefixes += "scene_${it.key}_" }
+        val legacy = LEGACY_SLOT_NAMES.values.flatten()
+        return prefixes.any { prefix ->
+            legacy.any { slot ->
+                store.getString("${prefix}gesture_${slot}_action_id", null) != null ||
+                    store.getString("${prefix}gesture_${slot}_action_config", null) != null
+            }
+        }
+    }
+
+    /** 一次性迁移提示是否已经提示过（P1 用）。老存档归一不写回任何映射，所以只需要这个标记。 */
+    var legacyNoticeShown: Boolean
+        get() = store.getBoolean("legacy_notice_shown", false)
+        set(value) = store.putBoolean("legacy_notice_shown", value)
 
     // --- Dispatch Mode ---
     var dispatchMode: DispatchMode
@@ -155,80 +207,83 @@ class ConfigManager private constructor(private val store: PrefsStore) {
         } else {
             store.putString("per_app_configured_packages", current.joinToString(","))
         }
-        GestureType.entries.forEach { gesture ->
-            store.remove("app_${packageName}_gesture_${gesture.name}_action_id")
-            store.remove("app_${packageName}_gesture_${gesture.name}_action_config")
+        // 每个包清 6 个槽位名（新两槽 PLUS/MINUS + 旧四槽）各自的两份键。
+        // 旧键也必须清：用户既然把这个包从"分应用"里移除了，回落链就不该还能翻出它的旧映射。
+        val slots = CrownDir.entries.map { it.name } + LEGACY_SLOT_NAMES.values.flatten()
+        slots.forEach { slot ->
+            store.remove("app_${packageName}_gesture_${slot}_action_id")
+            store.remove("app_${packageName}_gesture_${slot}_action_config")
         }
     }
 
-    fun getAppActionId(packageName: String, gesture: GestureType): String? =
-        migrateActionId(store.getString("app_${packageName}_gesture_${gesture.name}_action_id", null))
+    fun getAppActionId(packageName: String, dir: CrownDir): String? =
+        migrateActionId(readSlot("app_${packageName}_", dir, "action_id"))
 
-    fun setAppActionId(packageName: String, gesture: GestureType, actionId: String?) {
-        val key = "app_${packageName}_gesture_${gesture.name}_action_id"
+    fun setAppActionId(packageName: String, dir: CrownDir, actionId: String?) {
+        val key = "app_${packageName}_gesture_${dir.name}_action_id"
         if (actionId != null) store.putString(key, actionId) else store.remove(key)
     }
 
-    fun getAppActionConfig(packageName: String, gesture: GestureType): String? =
-        store.getString("app_${packageName}_gesture_${gesture.name}_action_config", null)
+    fun getAppActionConfig(packageName: String, dir: CrownDir): String? =
+        readSlot("app_${packageName}_", dir, "action_config")
 
-    fun setAppActionConfig(packageName: String, gesture: GestureType, config: String?) {
-        val key = "app_${packageName}_gesture_${gesture.name}_action_config"
+    fun setAppActionConfig(packageName: String, dir: CrownDir, config: String?) {
+        val key = "app_${packageName}_gesture_${dir.name}_action_config"
         if (config != null) store.putString(key, config) else store.remove(key)
     }
 
     // --- Per-Scene ---
-    fun getSceneActionId(scene: SceneType, gesture: GestureType): String? =
-        migrateActionId(store.getString("scene_${scene.key}_gesture_${gesture.name}_action_id", null))
+    fun getSceneActionId(scene: SceneType, dir: CrownDir): String? =
+        migrateActionId(readSlot("scene_${scene.key}_", dir, "action_id"))
 
-    fun setSceneActionId(scene: SceneType, gesture: GestureType, actionId: String?) {
-        val key = "scene_${scene.key}_gesture_${gesture.name}_action_id"
+    fun setSceneActionId(scene: SceneType, dir: CrownDir, actionId: String?) {
+        val key = "scene_${scene.key}_gesture_${dir.name}_action_id"
         if (actionId != null) store.putString(key, actionId) else store.remove(key)
     }
 
-    fun getSceneActionConfig(scene: SceneType, gesture: GestureType): String? =
-        store.getString("scene_${scene.key}_gesture_${gesture.name}_action_config", null)
+    fun getSceneActionConfig(scene: SceneType, dir: CrownDir): String? =
+        readSlot("scene_${scene.key}_", dir, "action_config")
 
-    fun setSceneActionConfig(scene: SceneType, gesture: GestureType, config: String?) {
-        val key = "scene_${scene.key}_gesture_${gesture.name}_action_config"
+    fun setSceneActionConfig(scene: SceneType, dir: CrownDir, config: String?) {
+        val key = "scene_${scene.key}_gesture_${dir.name}_action_config"
         if (config != null) store.putString(key, config) else store.remove(key)
     }
 
     // --- Unified Resolution ---
-    fun resolveActionId(gesture: GestureType, foregroundPkg: String?, activeScene: SceneType?): String? =
+    fun resolveActionId(dir: CrownDir, foregroundPkg: String?, activeScene: SceneType?): String? =
         when (dispatchMode) {
-            DispatchMode.GLOBAL -> getActionId(gesture)
+            DispatchMode.GLOBAL -> getActionId(dir)
             DispatchMode.PER_APP -> {
                 if (foregroundPkg != null && foregroundPkg in getConfiguredPackages()) {
-                    getAppActionId(foregroundPkg, gesture) ?: getActionId(gesture)
+                    getAppActionId(foregroundPkg, dir) ?: getActionId(dir)
                 } else {
-                    getActionId(gesture)
+                    getActionId(dir)
                 }
             }
             DispatchMode.PER_SCENE -> {
                 if (activeScene != null) {
-                    getSceneActionId(activeScene, gesture) ?: getActionId(gesture)
+                    getSceneActionId(activeScene, dir) ?: getActionId(dir)
                 } else {
-                    getActionId(gesture)
+                    getActionId(dir)
                 }
             }
         }
 
-    fun resolveActionConfig(gesture: GestureType, foregroundPkg: String?, activeScene: SceneType?): String? =
+    fun resolveActionConfig(dir: CrownDir, foregroundPkg: String?, activeScene: SceneType?): String? =
         when (dispatchMode) {
-            DispatchMode.GLOBAL -> getActionConfig(gesture)
+            DispatchMode.GLOBAL -> getActionConfig(dir)
             DispatchMode.PER_APP -> {
                 if (foregroundPkg != null && foregroundPkg in getConfiguredPackages()) {
-                    getAppActionConfig(foregroundPkg, gesture) ?: getActionConfig(gesture)
+                    getAppActionConfig(foregroundPkg, dir) ?: getActionConfig(dir)
                 } else {
-                    getActionConfig(gesture)
+                    getActionConfig(dir)
                 }
             }
             DispatchMode.PER_SCENE -> {
                 if (activeScene != null) {
-                    getSceneActionConfig(activeScene, gesture) ?: getActionConfig(gesture)
+                    getSceneActionConfig(activeScene, dir) ?: getActionConfig(dir)
                 } else {
-                    getActionConfig(gesture)
+                    getActionConfig(dir)
                 }
             }
         }

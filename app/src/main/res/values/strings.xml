@@ -113,8 +113,8 @@
     <string name="home_seek_sensitivity">进度灵敏度</string>
     <string name="home_seek_sensitivity_hint">转一格大约跳多少毫秒；越大跳得越猛</string>
     <string name="home_threshold">速度阈值</string>
-    <string name="home_threshold_title">判定为快转的门槛</string>
-    <string name="home_threshold_hint">200ms 内事件数超过这个值算“拨动”（快转）</string>
+    <string name="home_threshold_title">幅度灵敏度门槛</string>
+    <string name="home_threshold_hint">200ms 内事件数越多，单次动作幅度越大；超过这个值按最大幅度算（不再区分快转/慢转）</string>
     <string name="home_about">关于</string>
 
     <string name="gesture_global">全局手势</string>
@@ -156,10 +156,11 @@
     <string name="about_mode_app">当前：按应用分别配置（去「应用」页）</string>
     <string name="about_mode_scene">当前：按系统状态自动切换（去「场景」页）</string>
     <string name="back">返回</string>
-    <string name="gesture_cw_slow">顺时针慢转</string>
-    <string name="gesture_cw_fast">顺时针快转</string>
-    <string name="gesture_ccw_slow">逆时针慢转</string>
-    <string name="gesture_ccw_fast">逆时针快转</string>
+    <string name="gesture_plus">顺时针（＋）</string>
+    <string name="gesture_minus">逆时针（−）</string>
+    <string name="legacy_merge_title">快转/慢转已合并</string>
+    <string name="legacy_merge_message">新版按转向分配动作：顺时针（＋）与逆时针（−）各一条。您原来给“慢转”配的动作保留，“快转”那条不再单独生效；要改可以进手势设置重选。</string>
+    <string name="legacy_merge_ok">知道了</string>
     <string name="mode_global">全局模式</string>
     <string name="mode_per_app">按应用模式</string>
     <string name="mode_per_scene">按场景模式</string>

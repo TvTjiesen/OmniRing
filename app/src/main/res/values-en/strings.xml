@@ -112,8 +112,8 @@
     <string name="home_seek_sensitivity">Scrub sensitivity</string>
     <string name="home_seek_sensitivity_hint">How many milliseconds one notch jumps; larger = coarser</string>
     <string name="home_threshold">Speed threshold</string>
-    <string name="home_threshold_title">Where a fast turn starts</string>
-    <string name="home_threshold_hint">More events than this within 200 ms counts as a flick</string>
+    <string name="home_threshold_title">Amplitude threshold</string>
+    <string name="home_threshold_hint">More events within 200 ms give a bigger step; above this value the step is at maximum (no longer picks fast vs slow)</string>
     <string name="home_about">About</string>
 
     <string name="gesture_global">Global gestures</string>
@@ -155,10 +155,11 @@
     <string name="about_mode_app">Now: per app (see the Apps tab)</string>
     <string name="about_mode_scene">Now: automatic by system state (see the Scenes tab)</string>
     <string name="back">Back</string>
-    <string name="gesture_cw_slow">Clockwise · slow</string>
-    <string name="gesture_cw_fast">Clockwise · fast</string>
-    <string name="gesture_ccw_slow">Counter-clockwise · slow</string>
-    <string name="gesture_ccw_fast">Counter-clockwise · fast</string>
+    <string name="gesture_plus">Clockwise (+)</string>
+    <string name="gesture_minus">Counter-clockwise (−)</string>
+    <string name="legacy_merge_title">Fast &amp; slow turns merged</string>
+    <string name="legacy_merge_message">Actions are now assigned per direction: one for clockwise (+), one for counter-clockwise (−). Your old “slow turn” choice is kept; the “fast turn” one no longer applies on its own. Change it in Gesture settings.</string>
+    <string name="legacy_merge_ok">Got it</string>
     <string name="mode_global">Global</string>
     <string name="mode_per_app">Per app</string>
     <string name="mode_per_scene">Per scene</string>

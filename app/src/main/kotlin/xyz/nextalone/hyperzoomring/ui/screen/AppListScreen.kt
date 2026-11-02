@@ -18,7 +18,7 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import xyz.nextalone.hyperzoomring.config.ConfigManager
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /** 「应用」页：已配置的应用列表 + 添加入口 */
 @Composable
@@ -68,7 +68,7 @@ fun AppListScreen(
             item { SectionTitle(stringResource(R.string.app_configured)) }
             items(configuredPackages.sorted().toList(), key = { it }) { pkg ->
                 val appLabel = remember(pkg) { appLabel(pm, pkg) }
-                val configuredCount = GestureType.entries.count { gesture ->
+                val configuredCount = CrownDir.entries.count { gesture ->
                     config.getAppActionId(pkg, gesture) != null
                 }
                 Card(modifier = Modifier.padding(bottom = 8.dp)) {

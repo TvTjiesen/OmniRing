@@ -86,11 +86,16 @@ fun stageDegPerUnit(context: android.content.Context): Float {
     return degPerUnitCache
 }
 
+/**
+ * 老 Hub 不带 EXTRA_DIRECTION / EXTRA_VALUE 时的兜底：只按旧四槽位名的**方向**给角度。
+ *
+ * 快慢不再影响步长（快转原先是 30°、慢转 12°，现在统一 ±12°）——v2 里转速只影响幅度，
+ * 且幅度走的是 [stageAngleDeltaUnits] 那条真路径，这里仅剩兼容旧版本心跳广播的意义。
+ * 下面这四个是**旧协议的字符串字面量**，不是类型引用（旧枚举已删）。
+ */
 fun stageAngleDelta(gesture: String): Float = when (gesture) {
-    "CW_SLOW" -> 12f
-    "CW_FAST" -> 30f
-    "CCW_SLOW" -> -12f
-    "CCW_FAST" -> -30f
+    "CW_SLOW", "CW_FAST" -> 12f
+    "CCW_SLOW", "CCW_FAST" -> -12f
     else -> 0f
 }
 

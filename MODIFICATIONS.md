@@ -324,3 +324,68 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
 
 **待业主拍板 6 点**（设计稿 §8）：旧"快慢不同配"取哪条 / 旧 `launch_app` 回落成滚动还是不动作 /
 两槽位出厂默认值 / 界面文案 / 幅度是否同轮改 / 方向翻转是否清零离散累计。
+
+## 第十四批（2026-11-02）· 表冠统一逻辑（四槽位 → 两槽位）实现 + 自测
+
+**业主已批准设计稿 §8 全部 6 点**（原文：「全部听你的」，2026-11-02）：旧"快慢不同配"取**慢转**那条 /
+旧 `launch_app` 配置**回落成 `scroll`** / 两槽位出厂默认**都 = `scroll`** / 文案「顺时针（＋）」
+「逆时针（−）」/ **幅度数值一点不改** / 方向翻转时**清零**离散累计。
+
+### 模型层
+- `ring/GestureType.kt` **删除**，新增 `ring/CrownDir.kt`（`PLUS`/`MINUS`；枚举 `name` 就是配置键名，
+  注释里写明不许再改名，旧键名只允许出现在回落链里）。
+- `ring/ZoomRingDetector.kt`：`onEvent` 只看方向（`CW_* -> PLUS`、`CCW_* -> MINUS`、无方向信息按 PLUS，
+  保留旧语义）；**速度只喂 `currentIntensity`，公式一字未动**。
+- `hook/SensorRingDriver.kt`：`currentGesture()` 只看 `model.dirSign`；删掉从此无消费者的
+  `FAST_UNITS_PER_SEC`；离散累计抽成新文件 `ring/DiscreteAccum.kt`（`onSample(dirSign, velUnitsPerSec, tms)`：
+  方向翻转清零 → `accum += abs(v)/60f` → 未到 `120f` 不过 → 距上次不足 60ms 不过；原三字段
+  `discreteAccum`/`lastActionAt`/`lastDirSign` 随之删除）。抽出类只是为了让这段逻辑**可测**
+  （`SensorRingDriver` 是 object，状态进程级私有），判定逻辑逐字照搬。
+- `action/Action.kt` 新增 `val directional: Boolean get() = true`；`LaunchAppAction` 覆盖为 `false`；
+  过滤点放在 `ActionRegistry.allForScope`（唯一调用点是手势选择页，所以页面本身不用改）——
+  **无方向动作"启动应用"从此不出现在两槽位选择器里**；`all()` 仍返回 16 个 id（id 是对外契约，一个不动）。
+- `config/DefaultMapping.kt`：两槽位默认都 `scroll`；`shouldSeed` 判断走回落链（老用户不会被重新种上
+  `scroll` 冲掉自定义映射，设计稿 §3.2 陷阱 1）。
+
+### 存储与兼容
+- 新键 `gesture_{PLUS,MINUS}_action_id|_action_config`，分应用 `app_<pkg>_…`、分场景 `scene_<key>_…` 同形。
+- **读**：`PLUS → CW_SLOW → CW_FAST`、`MINUS → CCW_SLOW → CCW_FAST`（`_action_config` 同一条链），
+  三个作用域都走；**写**：只写新键，**旧 4 键只读不删**（退回旧版行为不变）。
+- `ConfigManager.migrateActionId` 追加 `launch_app -> scroll`（读时归一，老存档里配过"启动应用"的槽位
+  自动变成滚动）。
+- `removeConfiguredPackage` 清 **6 槽 × 2 键**（新 2 + 旧 4）。
+- 新增只读探测 `fun hasLegacySlots(): Boolean` 与 `var legacyNoticeShown`（键 `legacy_notice_shown`）。
+
+### UI / i18n
+- 9 个 ui 文件 + 四语 `strings.xml` 由队友 ui-i18n 执行、我复核：`GestureType` 在 `app/src/main` 里
+  已 **0 命中**；`ui/CrownStage.kt` 的角度兜底保留旧协议字面量（`"CW_SLOW","CW_FAST" -> 12f`、
+  `"CCW_SLOW","CCW_FAST" -> -12f`），因为老版本 App 仍会按旧词发广播。
+- 新增一次性合并提示 `ui/screen/LegacyMergeDialog.kt`，条件 `hasLegacySlots() && !legacyNoticeShown`
+  （挂在 `MainActivity.onCreate` 的 `Box` 里，与开机动画并列），关闭时置 `legacyNoticeShown = true` ——
+  **只提示，不动配置**。
+- 门槛滑条文案从"判定为快转的门槛"改成"幅度灵敏度门槛"：2026-11-02 起 `speedThreshold` 只决定
+  `currentIntensity` 幅度，不再参与选槽位（四语同步）。
+- 四语 strings 总数 234 → **235**（删 4 增 2 后 + 新增 3 条提示文案）。
+
+### 工具
+- `tools/restore_prefs.py` 的 `MAPPING` 由 4 条扩到 **6 条**（新两键 + 旧四键，值都是 `scroll`）：
+  既是回滚路径（退回 cfg45 时旧键还在），也保住 `tools/deploy_verify.sh:65` 的
+  `grep -c gesture_ "$PREFS" ≥ 4` 门槛。
+- 探针 `DebugProbe.BUILD_TAG` `cfg45` → **`cfg46`**；`hzr_map` 行文变成 `PLUS:scroll|MINUS:scroll`，
+  `hzr_cfg` 里的 `CW_SLOW=` 改名 `PLUS=`。
+
+### 有意与设计稿字面不同的一处
+两个分发点（`hook/SensorRingDriver.kt:270-273`、`hook/InputInterceptorHook.kt:350-352`）的
+`if (action is LaunchAppAction) action.targetPackage = …` 特例**没有删**。理由：`launch_app` 已从选择器
+消失、老配置又被 `migrateActionId` 归一成 `scroll` ⇒ 这段不可达；留着是零成本兜底，删了反而多一处回归面。
+
+### 证据（本机实测，2026-11-02）
+- `./gradlew --offline :app:testDebugUnitTest :app:assembleDebug --rerun-tasks` → **BUILD SUCCESSFUL in 26s**，
+  46 actionable tasks all executed，exit 0（只有既有的 KSP/YukiHook 警告）。
+- `app/build/test-results/testDebugUnitTest/*.xml` → **tests=239 / failures=0 / errors=0 / skipped=0**
+  （37 个 XML；基线 219 条，本轮改写 4 个测试文件 + 新增 `ring/DiscreteAccumTest.kt`、
+  `action/ActionRegistryDirectionalTest.kt`）。
+- `python tools/i18n_check.py` → `values=235 values-b+zh+Hant=235 values-en=235 values-ru=235` OK。
+- debug APK：`app/build/outputs/apk/debug/app-debug.apk` md5 `e150334568322a3ed77f898a9ac8e91e`，
+  939 entries，`META-INF/xposed` 2 条，dex 里带 `cfg46` 戳 —— 这份就是 `tools/deploy_verify.sh` 会推的包。
+- **本轮只本地提交，未 push。真机验收（P2）等 17 Ultra（`c05bb07c`）接上再做。**

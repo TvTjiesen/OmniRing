@@ -112,8 +112,8 @@
     <string name="home_seek_sensitivity">Чувствительность</string>
     <string name="home_seek_sensitivity_hint">Сколько миллисекунд на одно деление; больше — грубее</string>
     <string name="home_threshold">Порог скорости</string>
-    <string name="home_threshold_title">Где начинается резкий поворот</string>
-    <string name="home_threshold_hint">Больше событий, чем это значение за 200 мс, считается щипком</string>
+    <string name="home_threshold_title">Порог амплитуды</string>
+    <string name="home_threshold_hint">Чем больше событий за 200 мс, тем больше шаг; выше этого значения шаг максимальный (больше не выбирает быстрый/медленный поворот)</string>
     <string name="home_about">О модуле</string>
 
     <string name="gesture_global">Общие жесты</string>
@@ -155,10 +155,11 @@
     <string name="about_mode_app">Сейчас: по приложениям (вкладка «Приложения»)</string>
     <string name="about_mode_scene">Сейчас: автоматически по состоянию (вкладка «Сцены»)</string>
     <string name="back">Назад</string>
-    <string name="gesture_cw_slow">По часовой · медленно</string>
-    <string name="gesture_cw_fast">По часовой · быстро</string>
-    <string name="gesture_ccw_slow">Против часовой · медленно</string>
-    <string name="gesture_ccw_fast">Против часовой · быстро</string>
+    <string name="gesture_plus">По часовой (+)</string>
+    <string name="gesture_minus">Против часовой (−)</string>
+    <string name="legacy_merge_title">Быстрый и медленный повороты объединены</string>
+    <string name="legacy_merge_message">Действия теперь назначаются по направлению: одно по часовой стрелке (+), одно против часовой стрелки (−). Ваш прежний выбор для «медленного» поворота сохранён, «быстрый» больше не действует отдельно. Изменить можно в настройках жестов.</string>
+    <string name="legacy_merge_ok">Понятно</string>
     <string name="mode_global">Общий режим</string>
     <string name="mode_per_app">По приложениям</string>
     <string name="mode_per_scene">По сценам</string>

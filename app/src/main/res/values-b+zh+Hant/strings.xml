@@ -113,8 +113,8 @@
     <string name="home_seek_sensitivity">進度靈敏度</string>
     <string name="home_seek_sensitivity_hint">轉一格大約跳多少毫秒；越大跳得越猛</string>
     <string name="home_threshold">速度閾值</string>
-    <string name="home_threshold_title">判定爲快轉的門檻</string>
-    <string name="home_threshold_hint">200ms 內事件數超過這個值算「撥動」（快轉）</string>
+    <string name="home_threshold_title">幅度靈敏度門檻</string>
+    <string name="home_threshold_hint">200ms 內事件數越多，單次動作幅度越大；超過這個值按最大幅度算（不再區分快轉／慢轉）</string>
     <string name="home_about">關於</string>
 
     <string name="gesture_global">全局手勢</string>
@@ -156,10 +156,11 @@
     <string name="about_mode_app">當前：按應用程式分別配置（去「應用程式」頁）</string>
     <string name="about_mode_scene">當前：按系統狀態自動切換（去「場景」頁）</string>
     <string name="back">返回</string>
-    <string name="gesture_cw_slow">順時針慢轉</string>
-    <string name="gesture_cw_fast">順時針快轉</string>
-    <string name="gesture_ccw_slow">逆時針慢轉</string>
-    <string name="gesture_ccw_fast">逆時針快轉</string>
+    <string name="gesture_plus">順時針（＋）</string>
+    <string name="gesture_minus">逆時針（−）</string>
+    <string name="legacy_merge_title">快轉／慢轉已合併</string>
+    <string name="legacy_merge_message">新版按轉向分配動作：順時針（＋）與逆時針（−）各一條。您原來給「慢轉」配的動作保留，「快轉」那條不再單獨生效；要改可以進手勢設定重選。</string>
+    <string name="legacy_merge_ok">知道了</string>
     <string name="mode_global">全局模式</string>
     <string name="mode_per_app">按應用程式模式</string>
     <string name="mode_per_scene">按場景模式</string>

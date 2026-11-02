@@ -19,7 +19,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import xyz.nextalone.hyperzoomring.action.ActionRegistry
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.config.ConfigScope
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /**
  * 「手势」这一页：四个顺逆/快慢槽位的全局动作。
@@ -29,7 +29,7 @@ import xyz.nextalone.hyperzoomring.ring.GestureType
 fun GestureListScreen(
     modifier: Modifier = Modifier,
     pagePadding: PaddingValues = pagePaddingDefault(),
-    onGestureClick: (GestureType) -> Unit = {},
+    onGestureClick: (CrownDir) -> Unit = {},
     refreshTrigger: Int = 0,
 ) {
     val context = LocalContext.current
@@ -38,7 +38,7 @@ fun GestureListScreen(
 
     Page(pagePadding = pagePadding, modifier = modifier) {
         item { SectionTitle(stringResource(R.string.gesture_global), top = true) }
-        items(GestureType.entries.toList(), key = { it.name }) { gesture ->
+        items(CrownDir.entries.toList(), key = { it.name }) { gesture ->
             val actionId = config.getActionId(gesture)
             val actionName = actionId?.let { ActionRegistry.get(it)?.label() } ?: stringResource(R.string.gesture_not_set)
             Card(modifier = Modifier.padding(bottom = 8.dp)) {

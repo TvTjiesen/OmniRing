@@ -30,7 +30,7 @@ object DebugProbe {
      * 实测出现过 App 进程是新代码、system_server 还是旧代码的情况），
      * 所以每条回显都带上这个戳，一眼看出到底加载的是哪一版。
      */
-    const val BUILD_TAG = "cfg45"
+    const val BUILD_TAG = "cfg46"
 
     /**
      * 哪条入口真的把模块带进了 system_server：`legacy` / `modern102` / `none`。
@@ -63,16 +63,17 @@ object DebugProbe {
                 Log.e(TAG, "PROBE hud threw", e)
             }
         }
-        // 128 = 把"四个全局手势现在分别映射到哪个动作"写回 Settings.Global。
-        // 用户报"改了全局手势没生效"，而配置是热读的，光看界面猜不出到底断在哪一环：
+        // 128 = 把"两个转向现在分别映射到哪个动作"写回 Settings.Global。
+        // 用户报"改了映射没生效"，而配置是热读的，光看界面猜不出到底断在哪一环：
         // App 写的那份 prefs / hook 读的那份 prefs / 解析出来的动作 id，是三个不同的地方。
-        // 有了这一条，改完映射不用转环也能端到端确认。
+        // 有了这一条，改完映射不用转环也能端到端确认。行文形如 `PLUS:scroll|MINUS:scroll`
+        // （cfg46 起只有两个槽位；这里读的就是回落链本身 —— 旧键也能解析出值就是证据）。
         if (cmd and 128L != 0L) {
             val cfg = InputInterceptorHook.currentConfig
             if (cfg == null) {
                 Log.e(TAG, "PROBE map: 还没有 ConfigManager（钩子没装好？）")
             } else {
-                val line = xyz.nextalone.hyperzoomring.ring.GestureType.entries.joinToString("|") { g ->
+                val line = xyz.nextalone.hyperzoomring.ring.CrownDir.entries.joinToString("|") { g ->
                     "${g.name}:${cfg.getActionId(g) ?: "-"}"
                 }
                 runCatching { Settings.Global.putString(context.contentResolver, "hzr_map", line) }
@@ -137,8 +138,8 @@ object DebugProbe {
         // 实测 system_server 读不到 App 的私有 prefs（exists=false/canRead=false），
         // 快照又是冻结的，所以配置只能靠 App 推 —— 这条就是证明那条通道活着。
         if (cmd and 512L != 0L) {
-            val cw = InputInterceptorHook.currentConfig?.getActionId(
-                xyz.nextalone.hyperzoomring.ring.GestureType.CW_SLOW
+            val plus = InputInterceptorHook.currentConfig?.getActionId(
+                xyz.nextalone.hyperzoomring.ring.CrownDir.PLUS
             ) ?: "-"
             val age = if (ConfigSync.lastAppliedAt == 0L) -1L
             else System.currentTimeMillis() - ConfigSync.lastAppliedAt
@@ -147,7 +148,7 @@ object DebugProbe {
                 "stage=${ConfigSync.stagePaused()} " +
                 "bootRestore=${runCatching { Settings.Global.getString(context.contentResolver, ConfigSync.KEY_BOOT_RESTORE) }.getOrNull()} " +
                 "snap=${runCatching { Settings.Global.getString(context.contentResolver, ConfigSync.KEY_SNAPSHOT)?.length }.getOrNull()}B " +
-                "ageMs=$age CW_SLOW=$cw build=$BUILD_TAG reg=${ConfigSync.registerError ?: "ok"}"
+                "ageMs=$age PLUS=$plus build=$BUILD_TAG reg=${ConfigSync.registerError ?: "ok"}"
             Log.i(TAG, "PROBE cfg $line")
             runCatching { Settings.Global.putString(context.contentResolver, "hzr_cfg", line) }
         }

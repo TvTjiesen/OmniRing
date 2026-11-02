@@ -18,7 +18,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 import xyz.nextalone.hyperzoomring.action.ActionRegistry
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.config.SceneType
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 
 /** 单个场景下的四个手势 */
 @Composable
@@ -26,7 +26,7 @@ fun SceneGestureOverviewScreen(
     scene: SceneType,
     modifier: Modifier = Modifier,
     pagePadding: PaddingValues = pagePaddingDefault(),
-    onGestureClick: (GestureType) -> Unit = {},
+    onGestureClick: (CrownDir) -> Unit = {},
 ) {
     val context = LocalContext.current
     val config = remember { ConfigManager.fromContext(context) }
@@ -42,7 +42,7 @@ fun SceneGestureOverviewScreen(
                 )
             }
         }
-        items(GestureType.entries.toList(), key = { it.name }) { gesture ->
+        items(CrownDir.entries.toList(), key = { it.name }) { gesture ->
             val actionId = config.getSceneActionId(scene, gesture)
             val actionName = actionId?.let { ActionRegistry.get(it)?.label() } ?: stringResource(R.string.app_default_action)
             Card(modifier = Modifier.padding(bottom = 8.dp)) {

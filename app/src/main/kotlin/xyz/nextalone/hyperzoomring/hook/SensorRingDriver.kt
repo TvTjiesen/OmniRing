@@ -10,6 +10,7 @@ import xyz.nextalone.hyperzoomring.action.actions.ScrubDragAction
 import xyz.nextalone.hyperzoomring.action.actions.TouchScrollInjector
 import xyz.nextalone.hyperzoomring.config.ConfigManager
 import xyz.nextalone.hyperzoomring.ring.CrownModel
+import xyz.nextalone.hyperzoomring.ring.DiscreteAccum
 import xyz.nextalone.hyperzoomring.ring.ActionRouter
 import xyz.nextalone.hyperzoomring.ring.ForegroundGate
 import xyz.nextalone.hyperzoomring.ring.RingSourceArbiter
@@ -18,7 +19,7 @@ import xyz.nextalone.hyperzoomring.ring.ScrollModeModel
 import xyz.nextalone.hyperzoomring.util.Heartbeat
 import android.content.Intent
 import xyz.nextalone.hyperzoomring.config.SceneType
-import xyz.nextalone.hyperzoomring.ring.GestureType
+import xyz.nextalone.hyperzoomring.ring.CrownDir
 import xyz.nextalone.hyperzoomring.ring.ZoomRingDetector
 import xyz.nextalone.hyperzoomring.ring.ZoomRingEvent
 
@@ -39,14 +40,10 @@ object SensorRingDriver {
     private const val TAG = "HyperZoomRing"
     private const val PARAM_TTL_MS = 400L
 
-    /** 判定"快转"的速度阈值（单位/秒） */
     private const val BROADCAST_THROTTLE_MS = 200L
     /** 隔得比这更久的累计转幅直接扔掉，不要一次性倒出去（看起来像列表自己窜了） */
     private const val UNITS_STALE_MS = 1_000L
     private const val STAGE_BROADCAST_MS = 50L
-    private const val FAST_UNITS_PER_SEC = 2200f
-    /** 离散动作（音量/亮度等）每累计多少位置单位触发一次 */
-    private const val DISCRETE_STEP_UNITS = 120f
 
     @Volatile
     private var lastBroadcastAt = 0L
@@ -64,8 +61,11 @@ object SensorRingDriver {
     /** 滚动里程表：表冠语义看带符号量，定方向语义看绝对量 */
     private val scrollMode = ScrollModeModel()
 
-    private var discreteAccum = 0f
-    private var lastActionAt = 0L
+    /**
+     * 离散动作的触发累计器。方向翻转清零那条规则在它里面（见 [DiscreteAccum]），
+     * 抽出去是为了能上单测：这个 object 的状态是进程级私有，单测够不着。
+     */
+    private val discrete = DiscreteAccum()
 
     @Volatile
     var enabled = true
@@ -124,17 +124,16 @@ object SensorRingDriver {
         deliver(context, config, tms)
     }
 
-    /** 这一把算哪个手势槽位：转向 × 速度。正常分发和沉浸态静默都用它 */
-    private fun currentGesture(): GestureType {
-        val dir = if (model.dirSign >= 0) 1 else -1
-        val fast = kotlin.math.abs(model.velUnitsPerSec) > FAST_UNITS_PER_SEC
-        return when {
-            dir > 0 && fast -> GestureType.CW_FAST
-            dir > 0 -> GestureType.CW_SLOW
-            fast -> GestureType.CCW_FAST
-            else -> GestureType.CCW_SLOW
-        }
-    }
+    /**
+     * 这一把算哪个转向。正常分发和沉浸态静默都用它。
+     *
+     * 只认方向：`fast`（`abs(velUnitsPerSec) > 阈值`）**不再参与选槽位** —— 转速在阈值上下
+     * 抖动时相邻样本会落进不同槽位、两个动作交替执行，这就是"音量/滚动概率冲突"的根。
+     * 转速只剩幅度这一个出口（[DiscreteAccum] 与 `detector.currentIntensity`）。
+     * 见 docs/CROWN-ACTION-V2-DESIGN.md。
+     */
+    private fun currentGesture(): CrownDir =
+        if (model.dirSign >= 0) CrownDir.PLUS else CrownDir.MINUS
 
     private fun deliver(context: Context, config: ConfigManager, tms: Long) {
         if (!config.isEnabled) return
@@ -273,12 +272,9 @@ object SensorRingDriver {
             action.targetPackage = config.resolveActionConfig(gesture, foregroundPkg, activeScene)
         }
 
-        // 离散动作：按转动量累计到阈值才触发一次，避免一格一动过于频繁
-        discreteAccum += kotlin.math.abs(model.velUnitsPerSec) / 60f
-        if (discreteAccum < DISCRETE_STEP_UNITS) return
-        discreteAccum = 0f
-        if (tms - lastActionAt < 60L) return
-        lastActionAt = tms
+        // 离散动作：按转动量累计到阈值才触发一次，避免一格一动过于频繁。
+        // 方向翻转会清累计（规则在 DiscreteAccum 里，有单测钉着）。
+        if (!discrete.onSample(model.dirSign, model.velUnitsPerSec, tms)) return
 
         try {
             action.execute(context, intensity)
@@ -296,7 +292,7 @@ object SensorRingDriver {
     private fun scrollToTarget(
         context: Context,
         actionId: String,
-        gesture: GestureType,
+        gesture: CrownDir,
         intensity: Float,
     ): Boolean {
         val gain = TouchScrollInjector.pxPerUnit()
@@ -314,7 +310,7 @@ object SensorRingDriver {
      */
     private fun dispatched(
         context: Context,
-        gesture: GestureType,
+        gesture: CrownDir,
         intensity: Float,
         actionId: String,
         ok: Boolean,
@@ -330,7 +326,7 @@ object SensorRingDriver {
      */
     private fun sendRingEvent(
         context: Context,
-        gesture: GestureType,
+        gesture: CrownDir,
         intensity: Float,
         actionId: String,
         ok: Boolean,

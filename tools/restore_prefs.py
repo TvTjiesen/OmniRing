@@ -8,9 +8,12 @@ import io
 import re
 import sys
 
-# 定方向的 scroll_up/scroll_down 已按用户要求删除，四个槽位统一给"滚动"
-# （方向本来就跟表冠实际转向走：顺时针往下、逆时针往上）。
+# 两槽位（2026-11-02，表冠统一逻辑 v2）：新键是**唯一会被写**的映射；
+# 旧四槽位键只读不删 —— 读时回落链要看它们，回滚到 cfg45 的包也要它们，
+# 而且 deploy_verify.sh 的 `grep -c gesture_` 门槛（≥4）就靠这些行。
 MAPPING = {
+    "gesture_PLUS_action_id": "scroll",
+    "gesture_MINUS_action_id": "scroll",
     "gesture_CW_SLOW_action_id": "scroll",
     "gesture_CW_FAST_action_id": "scroll",
     "gesture_CCW_SLOW_action_id": "scroll",
