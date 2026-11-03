@@ -229,6 +229,8 @@
     <string name="diag_hb_none">系统里没有心跳：模块未加载，或加载的还是旧版（需要重启作用域）</string>
     <string name="diag_selftest">自测：让系统自己滚一次列表，能滚就说明注入链路通</string>
     <string name="diag_selftest_btn">运行注入自测</string>
+    <string name="diag_selftest_sent">已发出，看看上面的列表有没有动</string>
+    <string name="diag_selftest_no_root">没能写入（su 未授权？给模块放行 root 再试）</string>
     <string name="stage_hint_ring">转动大师变焦环 · 点任意处退出</string>
     <string name="stage_hint_fallback">没收到变焦环数据，可先用手指转 · 原因见首页状态卡</string>
     <string name="compat_title">本机与适配</string>

@@ -17,17 +17,28 @@ import java.util.concurrent.TimeUnit
 
 /**
  * 「反馈包」：把诊断页看得到的一切（心跳、探针回显、当前映射、模块日志）拼成一段文本，
- * 一键复制或存进「下载」目录 —— 目的是让反馈 bug 的人**不用 root 手机、不用装 adb**，
+ * 一键复制或存进「下载」目录 —— 目的是让反馈 bug 的人**不用连电脑、不用装 adb**，
  * 只要长按粘贴或者发个文件过来。
  *
- * 为什么必须走 root 读 logcat：模块跑在 system_server 里（日志 tag 是 HyperZoomRing），
- * 普通 App 的 logcat 只看得到自己 UID 的行，看不到 system_server。而这个模块本身
- * 就要求 root 才能装（LSPosed + 作用域 = 系统框架），所以用户手上必然有 su；
- * 拿不到 su 时退回读自己进程的日志，并在输出里**明确标注**，不假装成功。
+ * 两条只有真机才暴露的坑，这个类就是围着它们设计的：
+ *
+ * 1. **App 写不进 Settings.Global**。App 是普通应用 uid，没有 WRITE_SECURE_SETTINGS，
+ *    `Settings.Global.putString` 会被**静默丢弃**（不抛异常、返回 void）。真机实测：
+ *    诊断页点「运行注入自测」后 `settings get global hzr_probe` 还是 null，
+ *    而模块那半边一直是空的。本模块本身要求 root 才能装，所以这里改走
+ *    `su -c "settings put global ..."` —— 与 adb shell 那条路等价。
+ *
+ * 2. **探针是边沿触发的**（见 DebugProbe.tick：值没变就不重跑）。所以不能只读现成的键，
+ *    必须先清 0、再写位图，等一次探针节拍，三个回显键才会真的刷新。
+ *    不这么做的话，用户导出的包里 `hzr_entry/hzr_cfg/hzr_map` 永远是空的或开机时的旧值。
+ *
+ * logcat 也按 tag 直取而不是"抓大缓冲区再筛"：模块的行在开机那一刻就产生了，
+ * 等用户来反馈时早被 uiautomator / qcc_sdk 之类的噪声刷出缓冲区。
+ * `-s TAG:V` 直接从各缓冲带上只取我们关心的 tag，能一路追到开机。
  */
 object DiagReport {
 
-    /** 抓多少行原始 logcat 来筛（越大越慢，4000 行大约 0.3 MB） */
+    /** 退回非 root 通道时最多读这么多行（越大越慢，4000 行约 0.3 MB） */
     private const val DUMP_LINES = 4000
 
     /** 最终写进反馈包的最大行数，太长反而没人看 */
@@ -35,28 +46,41 @@ object DiagReport {
 
     private const val SU_TIMEOUT_S = 20L
 
+    /** 清 0 与写位图之间的间隔：给 2 秒节拍一次看到"变了"的机会 */
+    private const val PROBE_RESET_GAP_MS = 400L
+
+    /** 写完位图后等多久：探针节拍是 2 秒一次，留够两拍 */
+    private const val PROBE_WAIT_MS = 4_600L
+
+    /** 探针位图：128=映射回显，512=配置通道回显，8192=入口体检。三条都不改变设备行为 */
+    internal const val PROBE_BITS = 128L or 512L or 8192L
+
     /**
-     * 需要保留的日志来源。前两个是本模块（system_server 侧 / App 侧），
+     * 需要保留的日志 tag。前两个是本模块（system_server 侧 / App 侧），
      * 后几个是出问题时唯一能说明"框架到底有没有加载模块"的证据。
+     * 用 tag 直取时这份清单同时是 `-s` 的参数来源。
      */
     private val KEEP_TAGS = listOf(
-        "HyperZoomRing", "HyperZoomRingUI", "LSPosed", "Xposed",
-        "AndroidRuntime", "libxposed", "KernelSU", "Magisk",
+        "HyperZoomRing", "HyperZoomRingUI", "LSPosed", "Xposed", "libxposed",
     )
+
+    /**
+     * 噪声：uiautomator 是抓界面用的临时进程，一跑就往 AndroidRuntime 里刷十几行，
+     * 真机第一次导出时 13 行里有 12 行是它，模块自己的证据反而被挤掉。
+     */
+    private val NOISE_TAGS = listOf("uiautomator", "chatty")
 
     /** 日志原文（未筛选） */
     private data class Raw(val text: String, val rooted: Boolean, val note: String?)
 
-    data class Bundle(val text: String)
-
-    /** 一次进程调用的结果：是否正常结束 + 全部输出 */
-    private class Result(val ok: Boolean, val text: String)
+    /** 一次进程调用的结果：是否正常结束 + 退出码 + 全部输出 */
+    private class Result(val ok: Boolean, val exit: Int, val text: String)
 
     private fun run(cmd: Array<String>): Result {
         val process = try {
             ProcessBuilder(*cmd).redirectErrorStream(true).start()
         } catch (e: Throwable) {
-            return Result(false, "")
+            return Result(false, -1, "")
         }
         val out = StringBuilder()
         val reader = Thread {
@@ -75,8 +99,50 @@ object DiagReport {
         val finished = runCatching { process.waitFor(SU_TIMEOUT_S, TimeUnit.SECONDS) }.getOrDefault(false)
         if (!finished) runCatching { process.destroyForcibly() }
         runCatching { reader.join(3_000) }
-        return Result(finished, out.toString())
+        val exit = runCatching { process.exitValue() }.getOrDefault(-1)
+        return Result(finished, exit, out.toString())
     }
+
+    /**
+     * 写一个 Settings.Global 键，先走 su，**写完全都回读确认**。
+     *
+     * 为什么必须回读：`Settings.Global.putString` 对没有 WRITE_SECURE_SETTINGS 的调用者是
+     * **静默丢弃**（return void，不抛异常），所以 `runCatching{...}.isSuccess` 恒为 true。
+     * 上一版就是栽在这里 —— 探针没被触发，包里却没有任何失败迹象。
+     * 现在只有"读回来等于目标值"才算成功，其余一律 false，让调用方去写 NOTE。
+     */
+    internal fun writeGlobal(context: Context, key: String, value: String): Boolean {
+        val su = run(arrayOf("su", "-c", "settings put global $key $value"))
+        if (su.ok && su.exit == 0 && readGlobal(context, key) == value) return true
+        // 退回直接写：将来 App 拿到 WRITE_SECURE_SETTINGS、或某些 ROM 放行时这条路才通
+        runCatching { Settings.Global.putString(context.contentResolver, key, value) }
+        return readGlobal(context, key) == value
+    }
+
+    private fun readGlobal(context: Context, key: String): String =
+        runCatching {
+            Settings.Global.getString(context.contentResolver, key) ?: ""
+        }.getOrDefault("")
+
+    /**
+     * 触发一次 system_server 里的探针，把 `hzr_entry` / `hzr_cfg` / `hzr_map` 刷新出来。
+     *
+     * 必须**先清 0 再写**：DebugProbe.tick 只在"读到非 0 且与上次不同"时才干活，
+     * 连着写两次同一个位图，第二次什么都不会发生。
+     *
+     * @return 位图写进去了才 true（写不进去时反馈包里那三行仍然会是空的，得让调用方知道）
+     */
+    fun refreshProbe(context: Context): Boolean {
+        writeGlobal(context, "hzr_probe", "0")
+        Thread.sleep(PROBE_RESET_GAP_MS)
+        val ok = writeGlobal(context, "hzr_probe", PROBE_BITS.toString())
+        if (ok) Thread.sleep(PROBE_WAIT_MS)
+        return ok
+    }
+
+    /** 诊断页「运行注入自测」：位图 32 = 让 system_server 自己滚一次列表 */
+    fun requestProbe(context: Context, bits: Long): Boolean =
+        writeGlobal(context, "hzr_probe", "0") && writeGlobal(context, "hzr_probe", bits.toString())
 
     /**
      * 读日志。先试 root（能拿到 system_server 的行），失败再退回本进程。
@@ -84,12 +150,21 @@ object DiagReport {
      * 反而会让人误判成"模块没跑"。
      */
     private fun rawLog(): Raw {
-        val cmd = "logcat -d -v time -t $DUMP_LINES"
-        val rooted = run(arrayOf("su", "-c", cmd))
+        // 按 tag 直取：只留我们关心的 tag，不带 -t，于是能一路追到开机那一刻。
+        // crash 缓冲单独再读一遍 —— FATAL EXCEPTION 不在 main 里，而它恰好最要紧。
+        val tags = KEEP_TAGS.joinToString(" ") { "$it:V" }
+        val script = "logcat -d -v time -b main,system -s $tags; " +
+            "echo '=== crash buffer ==='; logcat -d -v time -b crash"
+        val rooted = run(arrayOf("su", "-c", script))
         if (rooted.ok && rooted.text.isNotBlank()) {
             return Raw(rooted.text, rooted = true, note = null)
         }
-        val plain = run(arrayOf("logcat", "-d", "-v", "time", "-t", "$DUMP_LINES"))
+        val plain = run(
+            arrayOf(
+                "logcat", "-d", "-v", "time", "-b", "main,system",
+                "-s", *KEEP_TAGS.map { "$it:V" }.toTypedArray(),
+            )
+        )
         return when {
             plain.ok && plain.text.isNotBlank() -> Raw(
                 plain.text,
@@ -106,18 +181,57 @@ object DiagReport {
      * 筛选一旦写错（比如匹配不到 tag），用户发来的包会"看着干净"，
      * 反而把人往"模块没跑"的错误方向带。
      */
-    internal fun keepLine(line: String): Boolean = KEEP_TAGS.any { line.contains(it) }
+    internal fun keepLine(line: String): Boolean {
+        if (line.isBlank()) return false
+        if (line.startsWith("===")) return true
+        if (NOISE_TAGS.any { line.contains(it) }) return false
+        if (KEEP_TAGS.any { line.contains(it) }) return true
+        // AndroidRuntime 只在崩溃时值得留：uiautomator / am 每次启动都会刷几行 START/SHUTDOWN
+        return line.contains("FATAL EXCEPTION") || line.contains("AndroidRuntime: Process:")
+    }
 
-    private fun filtered(raw: Raw): List<String> =
-        raw.text.lineSequence()
-            .filter { keepLine(it) }
-            .toList()
-            .takeLast(MAX_LOG_LINES)
+    /**
+     * 崩溃段里值得留的行。
+     *
+     * 这里**不能整段全留**：真机 20:34 那份包里 crash 缓冲第一条是 11-01 的 native
+     * tombstone（`com.zhongan.ibank` 的 SIGSEGV），光寄存器就几十行，把 800 行预算吃光，
+     * 反而把真正相关的 `DeadSystemException` 挤出上限。所以只挑"哪崩了 + 为什么"这几类。
+     */
+    internal fun keepCrashLine(line: String): Boolean {
+        if (line.isBlank()) return false
+        if (line.startsWith("===") || line.startsWith("--------- beginning")) return true
+        val keys = listOf(
+            "FATAL EXCEPTION", "Process:", "DeadSystemException", "Cmdline:", "pid: ",
+            "signal ", "Cause:", "Abort message", "CRASH", "HyperZoomRing",
+        )
+        return keys.any { line.contains(it) }
+    }
 
-    private fun global(context: Context, key: String): String =
-        runCatching {
-            Settings.Global.getString(context.contentResolver, key) ?: ""
-        }.getOrDefault("")
+    /**
+     * 从原始日志里挑出要写进反馈包的行。抽成 internal 是为了能在 JVM 单测里钉住：
+     * 筛选一旦写错，用户发来的包会"看着干净"，反而把人往"模块没跑"的错误方向带。
+     */
+    internal fun selectLines(text: String): List<String> {
+        val kept = ArrayList<String>()
+        var inCrash = false
+        for (line in text.lineSequence()) {
+            if (line.startsWith("=== crash buffer ===")) {
+                inCrash = true
+                kept.add(line)
+                continue
+            }
+            if (inCrash) {
+                if (keepCrashLine(line)) kept.add(line)
+                continue
+            }
+            if (keepLine(line)) kept.add(line)
+        }
+        return kept.takeLast(MAX_LOG_LINES)
+    }
+
+    private fun filtered(raw: Raw): List<String> = selectLines(raw.text)
+
+    private fun global(context: Context, key: String): String = readGlobal(context, key)
 
     /** 环境 + 状态证据：没有日志也能看出"装的是哪版、映射是什么" */
     private fun environment(context: Context): String {
@@ -152,17 +266,27 @@ object DiagReport {
         }
     }
 
-    /** 完整的反馈包文本 */
+    /**
+     * 完整的反馈包文本。会先触发一次探针再读，所以是**阻塞**调用（约 5 秒），
+     * 调用方必须在 IO 线程上跑。
+     */
     fun compose(context: Context): String {
+        val probeOk = runCatching { refreshProbe(context) }.getOrDefault(false)
         val raw = rawLog()
         val log = filtered(raw)
         return buildString {
             append(environment(context))
             appendLine()
-            appendLine("=== logcat (rooted=${raw.rooted}, kept=${log.size}) ===")
+            appendLine("=== logcat (rooted=${raw.rooted}, kept=${log.size}, probe=$probeOk) ===")
+            if (!probeOk) {
+                appendLine(
+                    "NOTE 探针没能触发（su 未授权？），上面的 hzr_entry/hzr_cfg/hzr_map " +
+                        "可能是空的或开机时的旧值"
+                )
+            }
             if (raw.note != null) appendLine("NOTE ${raw.note}")
             if (log.isEmpty()) {
-                appendLine("(没有匹配到 HyperZoomRing / LSPosed / Xposed 的行)")
+                appendLine("(没有匹配到 HyperZoomRing / LSPosed 的行)")
             } else {
                 log.forEach { appendLine(it) }
             }

@@ -4,7 +4,7 @@
 细节在 `README.md`、`MODIFICATIONS.md`、`docs/*.md` 里，下面只标去哪查、不重复抄。
 
 工程：`E:\dev\hzr`（GPL-3.0，fork 自 NextAlone/HyperZoomRing）· 当前 `HEAD` 是
-`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg47`，见 §8D）· 装机身份
+`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg48`，见 §8D）· 装机身份
 `io.github.tvtjiesen.omniring`（**2026-10-31 从上游包名改过来的**，原因见
 `docs/LSPOSED-STORE.md`）。
 
@@ -157,14 +157,33 @@
 
 **D. 别再做**：宣传图/海报（他叫停了）；性能基线拿 debug 包量（R8 后 4.7 MB vs debug 47 MB， debug 量出来的数没意义）。
 
-## 8D. 本批（2026-11-02 晚，`cfg47`）新增两个功能
+## 8D. 本批新增的两个功能（`cfg47` → `cfg48` 真机验证过）
 
 - **作用域自动勾选**：新增 `app/src/main/resources/META-INF/xposed/scope.list`（`system`）。
   LSPosed 对 modern 模块只用这个文件当"推荐作用域"，没有它就只能手工勾「系统框架」。
   `res/values/xposed_scope.xml` 是 legacy 车道用的，保留不动。
+  ⚠ 只在"当前勾选为空"时生效（`ScopeAdapter` 的 `emptyCheckedList` 分支），
+  所以**老装机看不出变化，要卸载重装才能验证**——这条至今没验过。
 - **反馈包导出**：`util/DiagReport.kt` + 诊断页两个按钮（复制 / 存到 `下载/OmniRing/`）。
-  走 `su -c logcat`（本模块必须 root，用户必然有 su），拿不到 su 会在文本里标注；
-  筛选名单与上限见文件头注释，`DiagReportTest` 钉住筛选行为。
+  三条真机踩出来的硬事实（**别再退回旧写法**）：
+  1. **App 侧 `Settings.Global.put*` 一律静默失败**（普通应用 uid 没有 `WRITE_SECURE_SETTINGS`，
+     `runCatching{}.isSuccess` 恒为 true）。所以 `DiagReport.writeGlobal` 必须走
+     `su -c "settings put global …"` 并**回读校验**，不能只看调用没抛异常。
+     同一个 bug 也让诊断页「运行注入自测」一直是坏的（写 `hzr_probe` 无效果），
+     `cfg48` 改成 `DiagReport.requestProbe(context, 32L)` 才修好。
+  2. 探针是**边沿触发**（`DebugProbe.tick` 里 `cmd == lastCmd` 就 return，见
+     `hook/DebugProbe.kt:48-56`），而 `hzr_entry`/`hzr_cfg`/`hzr_map` **只在探针触发那一刻写**。
+     反馈包因此要先清 0 → 等 400ms → 写位图 8832（128|512|8192）→ 等 4.6s 让两拍探针跑完，
+     否则三个键是过时快照（真机第一版跑出来三个键全空）。
+  3. logcat 用 `-b main,system -s <tag>` 直取并按 tag 筛，**不要抓 4000 行大缓冲再筛**：
+     `-t 4000` 只覆盖最近十几秒，模块开机日志早滚掉了，剩下的全是 uiautomator 噪声。
+     crash 缓冲**不能整段留**（第一条可能是别的 App 的 native tombstone，几十行寄存器就把
+     800 行预算吃光），要用 `keepCrashLine` 白名单只挑"哪崩了 + 为什么"。
+- 真机验收过的（2026-11-03 20:34，`cfg48`）：反馈包 16,580 B，头 15 行齐全
+  （`hzr_entry=…build=cfg48 recv=ok reg=ok`、`hzr_cfg=… PLUS=scroll reg=ok`、
+  `hzr_map=PLUS:scroll|MINUS:scroll`、`enabled=true dispatch=GLOBAL speedThreshold=5`、
+  `map.PLUS=scroll`、`legacy_slots=true`），`kept=146`，uiautomator/chatty **0 行**；
+  自测按钮点击后 `settings get global hzr_probe` 从 8832 变 32（真进程写进去了）。
 
 ## 9. 和业主协作的方式（他明确表达过的偏好）
 
@@ -212,6 +231,23 @@
 - 取证小坑：屏幕 `mWakefulness=Dozing` 或 `mCurrentFocus=…NotificationShade` 时，`screencap` 拍到的
   是锁屏/通知栏而不是 App；先 `input keyevent 224` + `input keyevent 4` + `cmd statusbar collapse`，
   并且**别去输锁屏 PIN**。
+
+- **MSYS 会把 `adb push <本地> /data/...` 的目标改写成 `E:/dev/msys64/data/...`**（2026-11-03 踩了一小时）：
+  症状是 `remote secure_mkdirs() failed: No such file or directory`，**而 adb 同时打印
+  "1 file pushed"**（看着成功，其实写进了不存在的目录）。
+  `MSYS_NO_PATHCONV=1` 只在"当行前缀"时可靠；`export` 到 shell、套 `timeout`/`eval`/函数、
+  以及 `MSYS2_ARG_CONV_EXCL` 都可能失效。**最稳的办法是绕开 bash**：
+  用 Windows 原生 `python.exe` + `subprocess.run([ADB, "-s", <serial>, "push", local, remote])`，
+  参数不过 MSYS，路径原样到达（现成脚本 `build/push_chunks.py`，只在本地产物目录里，不入库）。
+- **`adb install` 在长线路上会写出坏包**：2026-11-03 20:36 那次 streamed install 报 Success，
+  但设备上 `base.apk` 的 md5 与本地不同（`ae05aae0…` vs `1cd70569…`），App 一启动就
+  `ClassNotFoundException: androidx.startup.InitializationProvider` +
+  `Bad checksum (419d6781, expected 57376778)`。**装完必须核对设备上 base.apk 的 md5**
+  （`su -c 'md5sum $(pm path <pkg> | sed s/package://)'`），别信 `Success`。
+- 同一条链路上 `adb push` 超过 ~4 MB 就容易把 USB 链路拉挂（`device offline` / 设备从
+  `adb devices` 彻底消失，Windows PnP 里 `USB\VID_18D1&PID_4E11\C05BB07C` 也随之不见）。
+  恢复只能靠业主重新插线；`kill-server`/`start-server` 在设备已从 PnP 消失时无效。
+
 
 ## 11. Git 与许可纪律
 

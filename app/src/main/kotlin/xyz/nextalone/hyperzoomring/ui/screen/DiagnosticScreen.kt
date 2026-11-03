@@ -219,6 +219,9 @@ fun DiagnosticScreen(
             }
         }
         item {
+            val scope = rememberCoroutineScope()
+            var busy by remember { mutableStateOf(false) }
+            var result by remember { mutableStateOf<String?>(null) }
             Card {
                 Column(Modifier.padding(20.dp)) {
                     Text(
@@ -229,20 +232,39 @@ fun DiagnosticScreen(
                     TextButton(
                         text = stringResource(R.string.diag_selftest_btn),
                         onClick = {
-                            // 让 system_server 里的钩子自己滚一下：动了就说明注入链路是通的
-                            runCatching {
-                                android.provider.Settings.Global.putInt(
-                                    context.contentResolver, "hzr_probe", 32
-                                )
+                            if (!busy) {
+                                busy = true
+                                result = null
+                                scope.launch {
+                                    // 让 system_server 里的钩子自己滚一下：动了就说明注入链路是通的。
+                                    // 走 su 是因为 App 自己写 Settings.Global 会被静默丢弃（没有
+                                    // WRITE_SECURE_SETTINGS），这条路以前一直是坏的。
+                                    val ok = withContext(Dispatchers.IO) {
+                                        runCatching { DiagReport.requestProbe(context, 32L) }
+                                            .getOrDefault(false)
+                                    }
+                                    result = context.getString(
+                                        if (ok) R.string.diag_selftest_sent else R.string.diag_selftest_no_root
+                                    )
+                                    busy = false
+                                }
                             }
                         },
                         modifier = Modifier.padding(top = 10.dp),
                     )
+                    result?.let {
+                        Text(
+                            text = it,
+                            fontSize = 12.sp,
+                            color = MiuixTheme.colorScheme.onBackgroundVariant,
+                            modifier = Modifier.padding(top = 6.dp),
+                        )
+                    }
                 }
             }
         }
 
-                // 反馈包：模块要求 root，所以这里可以直接问 su 要 logcat；
+        // 反馈包：模块要求 root，所以这里可以直接问 su 要 logcat；
         // 拿不到 su 时 DiagReport 会在文本里写明"只有本进程日志"，不假装是完整包。
         item {
             val scope = rememberCoroutineScope()

@@ -228,6 +228,8 @@
     <string name="diag_hb_none">No heartbeat in the system: module not loaded, or still the old build (restart the scope)</string>
     <string name="diag_selftest">Self test: let the system scroll the list once. If it moves, injection works</string>
     <string name="diag_selftest_btn">Run injection self test</string>
+    <string name="diag_selftest_sent">Sent — check whether the list above moved</string>
+    <string name="diag_selftest_no_root">Could not send (no su? grant root to the module and retry)</string>
     <string name="stage_hint_ring">Turn the Master Zoom Ring · tap anywhere to exit</string>
     <string name="stage_hint_fallback">No ring events — drag it by hand for now. See the status card on Home</string>
     <string name="compat_title">Device &amp; compatibility</string>

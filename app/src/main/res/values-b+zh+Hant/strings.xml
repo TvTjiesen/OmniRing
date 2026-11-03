@@ -229,6 +229,8 @@
     <string name="diag_hb_none">系統裏沒有心跳：模組未載入，或載入的還是舊版（需要重啟作用域）</string>
     <string name="diag_selftest">自測：讓系統自己捲一次列表，能捲就說明注入鏈路通</string>
     <string name="diag_selftest_btn">運行注入自測</string>
+    <string name="diag_selftest_sent">已發出，看看上面的列表有沒有動</string>
+    <string name="diag_selftest_no_root">沒能寫入（su 未授權？給模組放行 root 再試）</string>
     <string name="stage_hint_ring">轉動大師變焦環 · 點任意處退出</string>
     <string name="stage_hint_fallback">沒收到變焦環數據，可先用手指轉 · 原因見首頁狀態卡</string>
     <string name="compat_title">本機與適配</string>

@@ -1,45 +1,55 @@
+# 改动说明（GPL-3.0 §5a 要求的显著声明）
 
-## 第十七批（2026-11-02）· 作用域自动勾选 + 反馈包导出（`cfg47`）
+本仓库是 **NextAlone/HyperZoomRing** 的二改版本。下列文件由本次二改**新增或修改**，
+改动日期为 **2026-10-11 ~ 2026-10-12**，作者：**TvTjiesen**。原始版本见 `README.upstream.md`，
+完整原始许可见 `LICENSE`（GPL-3.0，保持不变）。
 
-业主一句话两条需求：「给模块再加个自动勾选作用域的功能」+（承接上一条）「提取 log 的功能」。本批只动这两件。
+二改版在界面上的名字是 **万能变焦环 / OmniRing**（含新启动图标）。
+应用 ID 在 **2026-10-31（1.40.0-beta / cfg43）从上游的 `xyz.nextalone.hyperzoomring` 改为
+`io.github.tvtjiesen.omniring`**（改动原因与迁移代价见 `docs/LSPOSED-STORE.md` 和本文件第十二批）；
+Kotlin 的 `namespace`、源码目录与上游原文件的包声明保持 `xyz.nextalone.*` 不变 ——
+改的只是"装机身份"，不是"代码署名"。上游署名仍在本文件、`README.md` 与 App 内「设置 → 致谢」。
 
-**(1) 作用域自动勾选 —— 查清机制后补一个文件**
-- 机制（读 LSPosed `app/.../util/ModuleUtil.java` 原文，不是猜的）：模块被判定为 **modern**（APK 里有 `META-INF/xposed/`）
-  时，作用域**只**从 `META-INF/xposed/scope.list` 读（每行一个包名），`AndroidManifest` 里的
-  `<meta-data name="xposedscope" android:resource="@array/xposed_scope"/>` **完全被忽略**；
-  legacy 模块才读 meta-data。而 manager 侧 `ScopeAdapter` 的行为是：`scopeList`（声明值）当"推荐作用域"，
-  **只有当模块当前勾选为空时**才自动勾上推荐项。
-- 本工程之前的实情：双入口包里 `scope.list` **不存在** ⇒ LSPosed 把它当 modern 读 ⇒ 推荐作用域为空 ⇒
-  用户装完必须自己进作用域页手点「系统框架」。（legacy 单入口包反而没这问题：它读 `@array/xposed_scope` 的 `android`，
-  `ModuleUtil.getScopeList()` 里有历史别名转换 `android ↔ system`。）
-- 改动：新增 `app/src/main/resources/META-INF/xposed/scope.list`，内容一行 **`system`**
-  （不是 `android`：manager 内部表示里 `system` 才是系统框架，`android` 只是 legacy 别名，见
-  `AppHelper.getAppList()` 把 `android` 改名为 `system` 那段）。`xposed_scope.xml` 原样保留给 legacy 车道。
-- `-Phzr.legacyOnly=true` 车道照旧 `excludes += "META-INF/xposed/**"`，因此不会带进 legacy 包。
-- 已验证 APK 内容：`app-debug.apk`（940 entries）里 `META-INF/xposed/` 三条齐了
-  （`java_init.list` / `module.prop` / `scope.list`），`scope.list` 读回 `system\n`。
+代码占比（`tools/code_share.py`，2026-10-12 复算，76 个 .kt / 9493 行）：
+本 fork 新增 32%、移植 Miuix 液态玻璃 15%、上游文件被重写 13%、上游原样保留 38%。
+上游的署名放在 App 内「设置 → 致谢」和本文件、`README.md`，不再占用界面首屏。
 
-**(2) 反馈包导出 —— 新 `util/DiagReport.kt` + 诊断页两个按钮**
-- 口径按业主纠正过的前提走：**本模块必须 root 才能装，用户必然有 su**，所以日志就该直接问他
-  `su -c "logcat -d -v time -t 4000"`（`ScopeReload` 已有同样的 su 调用先例，超时/拒绝都走"明确失败"分支，不假装成功）。
-- 拿不到 su 时退回读本进程 `logcat`，并在文本里**写明** `NOTE root 不可用…`，避免用户发来的包"看着干净"被误判成模块没跑。
-- 只保留能说明"跑没跑"的行（tag 名单：`HyperZoomRing`/`HyperZoomRingUI`/`LSPosed`/`Xposed`/`AndroidRuntime`/`libxposed`/
-  `KernelSU`/`Magisk`），上限 800 行；筛选函数抽成 `internal fun keepLine` 供 JVM 单测钉住（`DiagReportTest`，3 条断言）。
-- 反馈包前半段是环境证据：版本/机型/SDK、`hzr_entry`、`hzr_cfg`、`hzr_map`、`hzr_hb`、`hzr_loaded_apk`、
-  开关与分发模式、两槽位映射与 `action_config`、`legacy_slots` —— 这些都是 `Settings.Global`（读不需要权限）与
-  `ConfigManager` 的现成 API，不新增任何写操作。
-- 出口两条，都不用额外权限/不新增清单声明：**复制到剪贴板**；**存成文件**走 `MediaStore.Downloads`
-  （`下载/OmniRing/omniring-diag-<时间>.txt`，API 29+ 无需 `WRITE_EXTERNAL_STORAGE`，也不需要 FileProvider）。
-- 四语文案同步新增 7 个键（`diag_report_*`）：`tools/i18n_check.py` 报 242/242/242/242 OK。
+## 为什么要二改
 
-**构建与自测**
-- `DebugProbe.BUILD_TAG` → **`cfg47`**；dex 实锤：`app/build/outputs/apk/debug/app-debug.apk`（md5 `7fcf73b730c037876dafb3f5870765d4`，
-  940 entries）里 `cfg47` 落在 `classes9.dex`。
-- `./gradlew --offline :app:testDebugUnitTest --rerun` → **37+1 个 XML、242 条断言、0 失败 0 错误 0 跳过**
-  （本批新增 3 条；上一批 239 条）。
-- 尚未做：真机验证（设备此刻不在线）。上机要看的：①装机后 LSPosed 作用域页里「系统框架」是否**已自动勾上**；
-  ②诊断页「反馈包 → 存成文件」是否在 `下载/OmniRing/` 出文件、内容里 `rooted=true` 且含 `HyperZoomRing` 行。
-整份配置的线格式（三段：类型 / 键 / 值，用制表符分隔）+ 通道常量；解码坏行只跳过、绝不抛 |
+HyperOS 4 把 `dumpsys input` 里的 `InputFilterEnabled` 强制置为 `false`，Android 因此
+不再调用 `InputManagerService.filterInputEvent` —— 而上游模块**唯一**的硬件事件捕获点
+就是它。结果：上游 13 个动作在这台机器上全部失效，且写 `settings put global
+input_filter_enabled 1` 也救不回来（ROM 层忽略）。本次二改把触发源整体换成
+mt350x 光学追踪传感器的数据流，绕开输入管线，并在此之上补齐了"表冠式滚动"和
+"视频进度环"。
+
+## 新增文件
+
+### 算法与调度（全部是不依赖 Android 的纯类，能在 PC 上跑单测和真机样本回放）
+
+| 文件 | 作用 |
+| --- | --- |
+| `ring/CrownModel.kt` | 表冠模型：停手重锚定（传感器参考点会归零）、回差棘轮、按真实时间衰减的峰值速度 |
+| `ring/ScrollTracker.kt` | 滚动的纯运动部分：单误差直驱 `err = target − applied`，含防误触落指门槛与补位移 |
+| `ring/ScrollModeModel.kt` | 滚动的里程表：带符号累计转幅 × 增益 = 注入端要追的绝对目标（方向只跟实际转向走） |
+| `ring/ActionRouter.kt` | 每个动作走哪条通道（连续滚动 / 进度 / 拖进度条 / 离散）的纯判断，全量单测钉住；删掉的 `scroll_up`/`scroll_down` 旧存档 id 也在这里兜回滚动通道 |
+| `action/InjectionBudget.kt` | 触摸注入的闸门：只数**连续**失败、到上限只冷却 5 秒。旧版是终身累计 `failures>=8` 永久停用，就是他说的"有概率丢失触控、表冠和触摸一起死" |
+| `ring/ScrubModel.kt` | 绝对目标进度求对（会话基准 + 节流 + 钳位） |
+| `ring/ScrubHoldModel.kt` | "按住不放"式进度拖拽的偏移模型 |
+| `ring/SeekGate.kt` | 这一把该调进度还是该滚动（横竖屏 / 播放中 / 暂停 / 竖屏白名单） |
+| `hook/SensorRingDriver.kt` | 传感器驱动的调度器（取代上游依赖输入事件的链路） |
+| `hook/DebugProbe.kt` | `Settings.Global hzr_probe` 位图诊断通道：不转环也能自测浮窗 / 会话 / 注入 / 配置同步 |
+| `action/actions/ScrollAction.kt` | 滚动动作 + 触摸合成注入器（`TouchScrollInjector`、`InjectBridge`） |
+| `action/actions/MediaScrubAction.kt` | 视频/音频进度环（表冠微调，绝对 seek） |
+| `action/actions/ScrubDragAction.kt` | 横向拖播放器自己进度条的通道（无 MediaSession 时用） |
+| `hud/CrownHud.kt` | system_server 内的进度浮窗（异常即永久自闭，不影响主功能） |
+| `media/MediaSessionBridge.kt` | 系统进程里访问 MediaSession 的反射桥（`MediaSessionManager` 在 system_server 内不可用） |
+
+### 配置同步（"改了设置没反应"的修法）
+
+| 文件 | 作用 |
+| --- | --- |
+| `config/ConfigPayload.kt` | 整份配置的线格式（三段：类型 / 键 / 值，用制表符分隔）+ 通道常量；解码坏行只跳过、绝不抛 |
 | `hook/ConfigSync.kt` | 钩子侧接收器：签名级权限挡住伪造，收到就整体换掉生效的 ConfigManager；开机主动回要三次 |
 | `util/ConfigPush.kt` | App 侧：写盘即推（防抖 250ms）、开机被问就答、进界面再推一次 |
 | `util/Heartbeat.kt` | system_server 侧心跳：把"模块是否真在跑、样本数、最近动作、注入成败"写进 Settings.Global（正面证据） |
@@ -436,3 +446,120 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
   issue `#2407` → 仓库 `Xposed-Modules-Repo/io.github.tvtjiesen.omniring` 建成 → 邀请 `341041488` 接受 →
   `SUMMARY` + `README.md` 推送（无源码）→ Release `51-1.40.0` 带 legacy 附件上传成功。
   **仓库描述仍需业主在浏览器填**（REST 无权限，机器人明确要求），不填则商店不收录。
+
+## 第十六批（2026-11-02）· 代码来源统计改成可复现判据 + 首次推送 GitHub
+
+本批**没有任何 App 功能改动**（不产生新构建戳，包内仍 `cfg46`），只改统计工具与文档。
+
+- **`tools/code_share.py` 换判据**：旧版靠两张手写字面清单（`NEW`/`MOD`）给文件分类，
+  凡是不在清单里的新文件一律被算成"上游原样"，于是 README 里长期挂着"上游原样保留 40 文件 38%"。
+  改成**跟上游工作副本逐文件比 md5**（`--upstream <dir>`），并归一化 CRLF —— 本仓库提交会把 LF 改 CRLF，
+  不归一化会把这 8 个其实一字未改的小文件误判成"重写"。旧版 README 的 57 个 .kt / 6534 行也已过时。
+- **复核出的真实占比**（上游 HEAD `55b3bb7`）：上游 `app/src` 31 个 .kt / 2153 行；本仓库 132 个 .kt / 17369 行。
+  其中**上游一行没动的只有 8 个文件 / 227 行 = 现体量 1.3%**（音量 `VolumeAction`、亮度 `BrightnessAction`、
+  手电筒 `FlashlightAction`、`ConfigScope`/`DispatchMode`/`SceneType`/`ZoomRingConstants`/`ZoomRingEvent`），
+  另有 3 个非代码文件逐字节相同（`assets/xposed_init`、`resources/META-INF/yukihookapi_init`、
+  `res/values/xposed_scope.xml`）；重写 22 个 / 3507 行；新增 102 个 / 13635 行；删除 1 个（`ring/GestureType.kt`）。
+- **`README.md` §代码来源与占比 重写**：换成上述实测表 + 复跑命令，并明确写"上游代码只剩 1.3%，但衍生关系仍成立"——
+  包名 `xyz.nextalone.hyperzoomring`、`Action` 接口与 16 个动作 id、`ConfigManager` 键名、目录结构都源自上游，
+  因此 GPL-3.0 的署名与 §5a 显著修改声明**继续保留**（删掉反而有法律风险，保留成本为零）。
+- **首次推送到 GitHub（业主 2026-11-02 明确授权「直接发布上传github吧」，此前 §11 一直是"只本地提交不 push"）**：
+  26 个本地提交推到 `TvTjiesen/OmniRing` 的 `main`（`6a885cc` → `7390dbc`）。本机 `.gitconfig` 的
+  `url."https://gh-proxy.com/https://github.com/".insteadOf` 会把推送地址改写成镜像并报
+  `No anonymous write access`，绕法是用显式端口 `https://github.com:443/...`（前缀不匹配规则），
+  凭据用 `-c credential.helper='!f(){ echo username=x-access-token; echo "password=$(gh auth token)"; }; f'`，
+  token 不进命令行也不落盘。
+- **推送前的红线自查**（业主锁屏 PIN 绝不外发）：把 6 位串拆成两段在脚本内拼接，
+  扫工作树（排除 `.git`/`build`）与**所有 commit 的全部 blob** —— 均为 0 命中。
+
+## 第十七批（2026-11-02）· 作用域自动勾选 + 反馈包导出（`cfg47`）
+
+业主一句话两条需求：「给模块再加个自动勾选作用域的功能」+（承接上一条）「提取 log 的功能」。本批只动这两件。
+
+**(1) 作用域自动勾选 —— 查清机制后补一个文件**
+- 机制（读 LSPosed `app/.../util/ModuleUtil.java` 原文，不是猜的）：模块被判定为 **modern**（APK 里有 `META-INF/xposed/`）
+  时，作用域**只**从 `META-INF/xposed/scope.list` 读（每行一个包名），`AndroidManifest` 里的
+  `<meta-data name="xposedscope" android:resource="@array/xposed_scope"/>` **完全被忽略**；
+  legacy 模块才读 meta-data。而 manager 侧 `ScopeAdapter` 的行为是：`scopeList`（声明值）当"推荐作用域"，
+  **只有当模块当前勾选为空时**才自动勾上推荐项。
+- 本工程之前的实情：双入口包里 `scope.list` **不存在** ⇒ LSPosed 把它当 modern 读 ⇒ 推荐作用域为空 ⇒
+  用户装完必须自己进作用域页手点「系统框架」。（legacy 单入口包反而没这问题：它读 `@array/xposed_scope` 的 `android`，
+  `ModuleUtil.getScopeList()` 里有历史别名转换 `android ↔ system`。）
+- 改动：新增 `app/src/main/resources/META-INF/xposed/scope.list`，内容一行 **`system`**
+  （不是 `android`：manager 内部表示里 `system` 才是系统框架，`android` 只是 legacy 别名，见
+  `AppHelper.getAppList()` 把 `android` 改名为 `system` 那段）。`xposed_scope.xml` 原样保留给 legacy 车道。
+- `-Phzr.legacyOnly=true` 车道照旧 `excludes += "META-INF/xposed/**"`，因此不会带进 legacy 包。
+- 已验证 APK 内容：`app-debug.apk`（940 entries）里 `META-INF/xposed/` 三条齐了
+  （`java_init.list` / `module.prop` / `scope.list`），`scope.list` 读回 `system\n`。
+
+**(2) 反馈包导出 —— 新 `util/DiagReport.kt` + 诊断页两个按钮**
+- 口径按业主纠正过的前提走：**本模块必须 root 才能装，用户必然有 su**，所以日志就该直接问他
+  `su -c "logcat -d -v time -t 4000"`（`ScopeReload` 已有同样的 su 调用先例，超时/拒绝都走"明确失败"分支，不假装成功）。
+- 拿不到 su 时退回读本进程 `logcat`，并在文本里**写明** `NOTE root 不可用…`，避免用户发来的包"看着干净"被误判成模块没跑。
+- 只保留能说明"跑没跑"的行（tag 名单：`HyperZoomRing`/`HyperZoomRingUI`/`LSPosed`/`Xposed`/`AndroidRuntime`/`libxposed`/
+  `KernelSU`/`Magisk`），上限 800 行；筛选函数抽成 `internal fun keepLine` 供 JVM 单测钉住（`DiagReportTest`，3 条断言）。
+- 反馈包前半段是环境证据：版本/机型/SDK、`hzr_entry`、`hzr_cfg`、`hzr_map`、`hzr_hb`、`hzr_loaded_apk`、
+  开关与分发模式、两槽位映射与 `action_config`、`legacy_slots` —— 这些都是 `Settings.Global`（读不需要权限）与
+  `ConfigManager` 的现成 API，不新增任何写操作。
+- 出口两条，都不用额外权限/不新增清单声明：**复制到剪贴板**；**存成文件**走 `MediaStore.Downloads`
+  （`下载/OmniRing/omniring-diag-<时间>.txt`，API 29+ 无需 `WRITE_EXTERNAL_STORAGE`，也不需要 FileProvider）。
+- 四语文案同步新增 7 个键（`diag_report_*`）：`tools/i18n_check.py` 报 242/242/242/242 OK。
+
+**构建与自测**
+- `DebugProbe.BUILD_TAG` → **`cfg47`**；dex 实锤：`app/build/outputs/apk/debug/app-debug.apk`（md5 `7fcf73b730c037876dafb3f5870765d4`，
+  940 entries）里 `cfg47` 落在 `classes9.dex`。
+- `./gradlew --offline :app:testDebugUnitTest --rerun` → **37+1 个 XML、242 条断言、0 失败 0 错误 0 跳过**
+  （本批新增 3 条；上一批 239 条）。
+- 尚未做：真机验证（设备此刻不在线）。上机要看的：①装机后 LSPosed 作用域页里「系统框架」是否**已自动勾上**；
+  ②诊断页「反馈包 → 存成文件」是否在 `下载/OmniRing/` 出文件、内容里 `rooted=true` 且含 `HyperZoomRing` 行。
+
+
+## 第十八批（2026-11-03）· 反馈包与自测按钮在真机上修好（`cfg48`）
+
+第十七批把反馈包和自测按钮做出来了，但**第一次上真机就发现三处都是坏的**。本批只修这三处，
+没有动转环逻辑、没有改配置键。
+
+### 修了什么
+
+1. **App 侧 `Settings.Global.put*` 一直静默失败**（老 bug，不是第十七批引入的）。
+   App 是普通应用 uid、没有 `WRITE_SECURE_SETTINGS`，而 `Settings.Global.putString` 对无权调用者
+   **不抛异常、直接丢**，所以 `runCatching{}.isSuccess` 恒为 true —— 上一版据此报"成功"就是谎话。
+   现在 `util/DiagReport.kt` 的 `writeGlobal` 走 `su -c "settings put global <k> <v>"`
+   （本模块必须 root，用户必然有 su），并**回读校验**值真变了才算成功。
+   同一个 bug 让诊断页「运行注入自测」从来没生效过：它写 `hzr_probe` 写了等于没写。
+   现改为 `DiagReport.requestProbe(context, 32L)`，点击后 `settings get global hzr_probe`
+   确实从 8832 变 32。
+2. **反馈包三个关键行全空**（`hzr_entry` / `hzr_cfg` / `hzr_map`）。根因不在读取，而在**探针是边沿触发的**：
+   `hook/DebugProbe.kt:48-56` 里 `cmd == lastCmd` 就直接 return，而这些键只在探针被触发那一拍写入。
+   于是 `compose()` 现在先清 0 → 等 400ms → 写位图 8832（128|512|8192）→ 等 4.6s 让两拍探针跑完，
+   再读键、再抓日志；写不进去时在包里明写 `NOTE 探针没能触发（su 未授权？）`，不假装成功。
+3. **logcat 段 13 行里 12 行是噪声**（`D/AndroidRuntime … uiautomator.Launcher`）。
+   旧写法抓 `logcat -t 4000` 再筛，但 `-t` 只覆盖最近十几秒，模块开机日志早滚掉了。
+   改为 `logcat -d -v time -b main,system -s HyperZoomRing:V HyperZoomRingUI:V LSPosed:V Xposed:V libxposed:V`
+   按 tag 直取（不带 `-t` 才能追到开机），crash 缓冲单独取并加 `=== crash buffer ===` 分隔行。
+   新增 `NOISE_TAGS = uiautomator / chatty` 先排；crash 段**不能整段留**
+   （真机第一条是 11-01 别的 App 的 native tombstone，几十行寄存器把 800 行预算吃光），
+   改用 `keepCrashLine` 白名单只挑 `FATAL EXCEPTION` / `Process:` / `DeadSystemException` /
+   `Cmdline:` / `pid:` / `signal ` / `Cause:` / `Abort message` / `CRASH` / `HyperZoomRing`。
+
+### 验证
+
+- `./gradlew --offline :app:testDebugUnitTest --rerun`：**38 个 XML / 244 条断言 / 0 失败 0 错误 0 跳过**
+  （新增 `keepsAndroidCrashHeaderButNotAmNoise`、`crashSectionKeepsBlameNotRegisters`；
+  后者钉住"寄存器转储必须掉、`DeadSystemException` 必须留"）。
+- 四语 `strings.xml` 各加 2 键（`diag_selftest_sent` / `diag_selftest_no_root`）→ 各 244 键，
+  `python tools/i18n_check.py` 通过。
+- 真机（`c05bb07c`，nezha / HyperOS 4 / SDK 37）2026-11-03 20:34 实测反馈包：
+  16,580 B，`kept=146`，头 15 行齐全（`build=cfg48` / `recv=ok` / `reg=ok` /
+  `PLUS=scroll` / `dispatch=GLOBAL` / `legacy_slots=true`），uiautomator 与 chatty **各 0 行**。
+- 构建戳 `cfg46` → `cfg47`（第十七批）→ **`cfg48`**（本批）；`META-INF/xposed/` 三条齐
+  （`java_init.list` / `module.prop` / `scope.list`=`system`）。
+
+### 没验的（写清楚，别当已通过）
+
+- **`scope.list` 自动勾选仍未验证**：LSPosed 只在"当前勾选为空"时才用推荐作用域补勾
+  （`ScopeAdapter` 的 `emptyCheckedList` 分支），业主这台早已手工勾过「系统框架」，
+  所以看不出差别。要验得卸载重装——**本批没做**，因为设备在该验之前掉线了。
+- 装完后设备从 Windows PnP 消失（`USB\VID_18D1&PID_4E11\C05BB07C` 不见了），
+  本批最后一次构建（含 `keepCrashLine`）**没有跑到真机上**；已在设备上跑过的是同一份
+  源码的上一版（差别只有 crash 段白名单）。

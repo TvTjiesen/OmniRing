@@ -228,6 +228,8 @@
     <string name="diag_hb_none">Сердцебиения в системе нет: модуль не загружен или всё ещё старой версии (нужен перезапуск области)</string>
     <string name="diag_selftest">Самопроверка: система сама прокрутит список. Если двигается — внедрение работает</string>
     <string name="diag_selftest_btn">Запустить самопроверку</string>
+    <string name="diag_selftest_sent">Отправлено — проверьте, прокрутился ли список выше</string>
+    <string name="diag_selftest_no_root">Не удалось отправить (нет su? разрешите root для модуля)</string>
     <string name="stage_hint_ring">Крутите кольцо зума · нажмите, чтобы выйти</string>
     <string name="stage_hint_fallback">Событий с кольца нет — покрутите пальцем. См. карту состояния на главной</string>
     <string name="compat_title">Устройство и совместимость</string>
