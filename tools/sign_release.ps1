@@ -39,11 +39,28 @@ function Read-CertInfo($apk) {
     if ($p.ExitCode -ne 0 -and -not $out) { $out = '' }
     $dn = [regex]::Match($out, 'certificate DN:\s*(.+)').Groups[1].Value.Trim()
     $sha = [regex]::Match($out, 'certificate SHA-256 digest:\s*([0-9a-fA-F]+)').Groups[1].Value
-    return @{ dn = $dn; sha256 = $sha }
+    return @{ dn = $dn; sha256 = $sha; raw = $out; exit = $p.ExitCode }
 }
 
-if (-not (Test-Path $Keystore)) { Write-Host "!! 没有密钥：$Keystore" -ForegroundColor Red; exit 1 }
-if (-not (Test-Path $FingerprintFile)) { Write-Host "!! 没有指纹文件：$FingerprintFile" -ForegroundColor Red; exit 1 }
+function Invoke-Gradle([string]$Task, [string[]]$ExtraArgs) {
+    # 为什么不能直接 `& cmd.exe /c ".\gradlew.bat ..." 2>&1 | Select-Object -Last 3`：
+    # 本脚本开头 $ErrorActionPreference = 'Stop'，而 Gradle 会把警告写到 stderr，
+    # PowerShell 5.1 把"原生命令的 stderr"当成 NativeCommandError 抛出来 —— 构建其实照跑，
+    # 脚本却在这里炸掉（真机报过：sign_release.ps1:103 字符: 5 NativeCommandError）。
+    # 所以把 stdout+stderr 一起重定向进临时文件，只读回尾部几行做提示，退出码自己判。
+    $log = Join-Path $env:TEMP ("hzr_gradle_" + [guid]::NewGuid().ToString('N') + ".log")
+    $parts = @('.\gradlew.bat', '--offline', '-q') + $ExtraArgs + @($Task)
+    $line = ($parts -join ' ') + ' > "' + $log + '" 2>&1'
+    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList ('/c ' + $line) -Wait -PassThru -NoNewWindow
+    $tail = @(Get-Content $log -ErrorAction SilentlyContinue | Select-Object -Last 3)
+    foreach ($t in $tail) { Write-Host ("   " + $t) -ForegroundColor DarkGray }
+    if (Test-Path $log) { Remove-Item $log -Force -ErrorAction SilentlyContinue }
+    if ($p.ExitCode -ne 0) {
+        throw ("gradle $Task 失败（exit=" + $p.ExitCode + "）。完整日志已删，重跑一遍或用 Android Studio 看原因。")
+    }
+}
+
+if (-not (Test-Path $Keystore)) { Write-Host "!! 没有密钥：$Keystore" -ForegroundColor Red; exit 1 }if (-not (Test-Path $FingerprintFile)) { Write-Host "!! 没有指纹文件：$FingerprintFile" -ForegroundColor Red; exit 1 }
 
 $want = (Get-Content -Raw $FingerprintFile).Trim()
 Write-Host "记录的证书指纹：$want" -ForegroundColor Cyan
@@ -53,7 +70,17 @@ if ($SelfTest) {
         $CheckApk = Join-Path $Repo 'app\build\outputs\apk\release\app-release.apk'
     }
     Write-Host 'SelfTest：只验"读签名 + 比指纹 + 出报告"这一段，不跑 gradle。' -ForegroundColor Yellow
+    if (-not (Test-Path $CheckApk)) {
+        Write-Host ('   没有可验的包：' + $CheckApk) -ForegroundColor Red
+        Write-Host '   先跑一次 assembleRelease（或直接双击 bat，跳过自测）。' -ForegroundColor Yellow
+        exit 1
+    }
     $c = Read-CertInfo $CheckApk
+    if (-not $c.sha256) {
+        Write-Host '   读不到签名 —— apksigner 没给指纹。它自己的输出：' -ForegroundColor Red
+        foreach ($l in @($c.raw -split "`r?`n")) { if ($l) { Write-Host ('     | ' + $l) -ForegroundColor DarkGray } }
+        exit 1
+    }
     $ok = (Norm $c.sha256) -eq (Norm $want)
     Write-Host ("   读到的 DN      : " + $c.dn)
     Write-Host ("   读到的 SHA-256 : " + $c.sha256)
@@ -100,7 +127,7 @@ $pw = $null
 Push-Location $Repo
 try {
     Write-Host '构建 1/2：双声明那份 …' -ForegroundColor Cyan
-    & cmd.exe /c ".\gradlew.bat --offline -q assembleRelease" 2>&1 | Select-Object -Last 3
+    Invoke-Gradle 'assembleRelease' @()
     $dual = Join-Path $Repo 'app\build\outputs\apk\release\app-release.apk'
     if (-not (Test-Path $dual)) { throw '没产出 app-release.apk' }
 
@@ -113,7 +140,7 @@ try {
     $outLegacy = ''
     if (-not $SkipLegacy) {
         Write-Host '构建 2/2：只留传统入口那份（发酷友 / 上架）…' -ForegroundColor Cyan
-        & cmd.exe /c ".\gradlew.bat --offline -q -Phzr.legacyOnly=true assembleRelease" 2>&1 | Select-Object -Last 3
+        Invoke-Gradle 'assembleRelease' @('-Phzr.legacyOnly=true')
         $outLegacy = Join-Path $Repo ("build\OmniRing-$vname-signed-legacy.apk")
         Copy-Item $dual $outLegacy -Force
         Write-Host ("   → " + $outLegacy) -ForegroundColor Green
@@ -144,7 +171,8 @@ Write-Host ''
 # 别指望那个 .bat 再解析一遍 versionName（bat 的 for /f 转义太容易写坏，已经坏过一次）。
 $deskDir = Join-Path ([Environment]::GetFolderPath('Desktop')) ("OmniRing " + $vname)
 if (-not (Test-Path $deskDir)) { New-Item -ItemType Directory -Path $deskDir | Out-Null }
-foreach ($f in @(Get-ChildItem (Join-Path $Repo 'build') -Filter 'OmniRing-*-signed*.apk' -ErrorAction SilentlyContinue)) {
+# 只拷本次版本的包，别把 build\ 里历次留下的旧包一起糊到桌面
+foreach ($f in @(Get-ChildItem (Join-Path $Repo 'build') -Filter ("OmniRing-$vname-signed*.apk") -ErrorAction SilentlyContinue)) {
     Copy-Item $f.FullName (Join-Path $deskDir $f.Name) -Force
 }
 if (Test-Path $report) { Copy-Item $report (Join-Path $deskDir 'release_sign_report.txt') -Force }
