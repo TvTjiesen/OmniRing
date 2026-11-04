@@ -685,3 +685,51 @@ USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 
 而第一次跑总是满足的 —— 所以首测必过、复测必挂。以后凡是"改完 A 让 B 重新执行"
 的协议，都要**连续做两次**、并且确认**第二次的输出时间戳真的变了**（这次靠的就是
 `ageMs` 从 -1 变成正数这个判据）。
+
+## 第二十一批（2026-11-04）· 探针协议修好后真机端到端验收 + 发 1.40.1（versionCode 52）
+
+### 为什么这轮要动版本号
+`cfg49` 是行为修复（探针"清 0"协议、反馈包三行、自测按钮连按），不是纯文档改动，
+商店那份 `51-1.40.0` 已经对外，同版本号重发商店不会刷新，所以必须升版本。
+
+### 改动
+- `app/build.gradle.kts:39-40`：`versionCode 51 → 52`、`versionName "1.40.0" → "1.40.1"`。
+  注释口径不变（`versionCode` = 第几轮交付，每次 +1；1.40.x 不加 `-beta`）。
+- 本批**没有其它代码改动**，`cfg49` 已在上批确定（`DebugProbe.BUILD_TAG` 仍为 `cfg49`）。
+
+### 真机端到端验收（`cfg49`，11-04 11:36–11:38，设备已解锁）
+1. **自测按钮连按两次**：诊断页「运行注入自测」(297,1756) 点两次，两次都回显"已发出"。
+   日志给出决定性证据（`logcat -b main,system -s HyperZoomRing:V`）：
+   `11-04 11:36:56.935 I/HyperZoomRing( 6425): PROBE start cmd=32` 与
+   `11-04 11:37:02.951 I/HyperZoomRing( 6425): PROBE start cmd=32` —— **两次按压两次执行**。
+   修复前第二次不会有任何反应（`requestProbe` 清 0 与写位图之间没有间隔，且 `tick` 读到 0 不更新记忆）。
+2. **反馈包三行全部非空**（`/sdcard/Download/OmniRing/omniring-diag-20261104-113739.txt`，5,231 B）：
+   `hzr_entry=…runtime=started=true ctx=ok cfg=ok recv=ok bootWait=1 build=cfg49`
+   `hzr_cfg=pushed=2 keys=17 src=push stage=false bootRestore=17;1793762744084 snap=489B ageMs=677445 PLUS=scroll build=cfg49 reg=ok`
+   `hzr_map=PLUS:scroll|MINUS:scroll`
+   （11-04 11:21 那份还是 `pushed=0 / PLUS=-`，同一台机同一个包，差别只在探针协议修没修。）
+3. **crash 段收敛**：只剩 10 行，全是 11-04 11:25 我 `kill -9 system_server` 造成的
+   `DeadSystemException: The system died`（`com.android.phone` / `com.android.systemui` /
+   `com.android.bluetooth`），**没有**再被别的 App 的 native tombstone 吃掉 800 行预算。
+   `keepCrashLine` 白名单按设计生效。
+4. logcat 段 `rooted=true, kept=46`，全部是 `HyperZoomRing` / `HyperZoomRingUI`，
+   **uiautomator / chatty 噪声 0 行**。
+
+### 构建
+- `./gradlew --offline -q :app:testDebugUnitTest --rerun` → **39 XML / 248 断言 / 0 失败 0 错误 0 跳过**。
+- `python tools/i18n_check.py` → `values=244 values-b+zh+Hant=244 values-en=244 values-ru=244 OK`。
+- `assembleRelease` → `app/build/outputs/apk/release/app-release.apk` 4,744,848 B、
+  md5 `acbfa06a81e6077f6b1c021e8fc4ad43`、445 entries、`META-INF/xposed/` 三条
+  （`java_init.list` / `module.prop` / `scope.list`）、`cfg49` 在 `classes.dex`。
+  `aapt2 dump badging`：`io.github.tvtjiesen.omniring` / `versionCode='52'` /
+  `versionName='1.40.1'` / `application-label:'万能变焦环'`。
+  **签名仍是回落调试签名**（`CN=Android Debug` / SHA-256 `8785e490…ef4ef`）⇒
+  发商店前必须双击 `tools/sign_key.bat` 重签。
+- `assembleDebug` → 47,197,217 B、md5 `986e30fb8eb59bdc66032df1fd1a249f`、940 entries、`cfg49` 在 `classes9.dex`。
+- **装机并回读设备端 md5**：`su -c 'md5sum $(pm path io.github.tvtjiesen.omniring | sed s/package://)'`
+  = `986e30fb8eb59bdc66032df1fd1a249f` ✅ 与本地一致；`dumpsys package` 显示
+  `versionCode=52` / `versionName=1.40.1`。**`Success` 不算证据，md5 一致才算**（见第十九批事故）。
+
+### 没验的
+- `scope.list` 自动勾选仍没验过（要卸载重装；老装机已被手工勾过，LSPosed 只在"当前勾选为空"时补推荐作用域）。
+- 正式签名包还没出（jks 口令只有业主知道，不经我手）；本次上架的 release 用他签的那份。

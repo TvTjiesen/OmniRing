@@ -4,7 +4,7 @@
 细节在 `README.md`、`MODIFICATIONS.md`、`docs/*.md` 里，下面只标去哪查、不重复抄。
 
 工程：`E:\dev\hzr`（GPL-3.0，fork 自 NextAlone/HyperZoomRing）· 当前 `HEAD` 是
-`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg49`，见 §8D）· 装机身份
+`1.40.0-beta → 1.40.0 → 1.40.1`（versionCode **52** / 构建戳 `cfg49`，见 §8D）· 装机身份
 `io.github.tvtjiesen.omniring`（**2026-10-31 从上游包名改过来的**，原因见
 `docs/LSPOSED-STORE.md`）。
 
@@ -108,7 +108,9 @@
   `aapt2` 均 `io.github.tvtjiesen.omniring` / versionCode 51 / 1.40.0 / 「万能变焦环」，dex 戳 `cfg46`。**上架用 legacy 那份。**
 - `build/OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与 `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`）是旧的**调试签名**产物，别再拿去发。
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
-  **2026-11-02 刷新**：当前 tag 是 **`51-1.40.0`**（versionCode 已从 50 抬到 51），附件名 `OmniRing-1.40.0-signed-legacy.apk`；
+  **2026-11-04 刷新**：versionCode 已抬到 **52 / 1.40.1**（`cfg49` 是行为修复：探针"清 0"协议、反馈包三行、自测按钮连按），
+  下一版 tag 为 **`52-1.40.1`**、附件名 `OmniRing-1.40.1-signed-legacy.apk`。
+  旧的 `51-1.40.0` 那段记录如下（历史）：
   `assembleRelease` 两种变体都已从当前源码验过能出（`build/rc_dual.apk` / `build/rc_legacy.apk`，dex 戳 `cfg46`），
   正式签名包已于 2026-11-02 20:09 出好（见上一条，md5 `70705b8d…`），**下一步只剩提 issue + 建 release 两个网页操作**。
   商店方图用 `python tools/gen_store_icon.py` 出（`build/store_icon_512.png`，与 APK 自适应图标同一份几何）；
@@ -292,11 +294,27 @@
 
 ## 11. Git 与许可纪律
 
-- 只做本地提交，**不 push**（业主明令）；提交信息写"为什么"，带实测证据；不要改他的全局 git 配置。
+- **推送规则已变（2026-11-02 业主授权）**：原来"只做本地提交、不 push"；现在**业主明确说过"直接发布上传github吧"**，
+  推送命令必须走显式 443 端口（本机 `.gitconfig` 有 `insteadOf` 把普通 push 改写成 gh-proxy 镜像，会报
+  `No anonymous write access`）：
+  `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token)"; }; f' push https://github.com:443/TvTjiesen/OmniRing.git main`
+  —— token 不进命令行、不落盘。**每次推送前照例跑一遍 PIN 自查**（工作树 + `git rev-list --objects --all` 全 blob）。
+  但"发版"（建 release / 改版本号）仍要业主当次点头。
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-02 13:10 左右）
+## 12. 此刻状态快照（2026-11-04 11:40 左右）
+
+- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg49`；单测 **39 XML / 248 断言 0 失败**，四语 **244/244**。
+- 设备 `c05bb07c` 在线且已解锁，装的是 **debug 包 1.40.1**（md5 `986e30fb8eb59bdc66032df1fd1a249f`，装机端已回读核对一致）。
+- `cfg49` 真机端到端**已验完**（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
+  `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
+- **发布 1.40.1 卡在一步**：`assembleRelease` 出来的 `app-release.apk`（4,744,848 B / md5 `acbfa06a81e6077f6b1c021e8fc4ad43`）
+  仍是**回落调试签名**（`CN=Android Debug` / `8785e490…`），要业主双击 `tools/sign_key.bat` 才会出
+  `build/OmniRing-1.40.1-signed.apk` 与 `-signed-legacy.apk`；签好后建 release tag **`52-1.40.1`**、附件用 legacy 那份。
+- 老 `51-1.40.0` 那次提交记录见 §7（历史），**商店是否已收录仍只能业主手机上搜 omniring 确认**。
+
+## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）
 
 - 工作树干净；提交链 `09a2e38`（**表冠统一逻辑 v2 实现**，四槽位→两槽位）← `f685b65`（设计稿）
   ← `9f75343`（§10 环境坑）← `67c9196`（交接文档），本轮再追加一个文档/工具提交（P2 验收证据 +
