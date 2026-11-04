@@ -54,7 +54,7 @@
 | GPL-3.0 义务 | ✅ | 源码仓库已公开（`TvTjiesen/OmniRing`），`MODIFICATIONS.md` 是 §5a 要求的显著声明；`LICENSE` 保持 GPL-3.0 |
 | 上传哪一份 APK | ◐ 待定 | 建议**上架那份用 legacy-only 包**（`-Phzr.legacyOnly=true`）：老 LSPosed 撞上双声明会一条都不加载（`HYPEROS3-SELFCHECK.md` §6 实测），商店用户里一定有人是老版本框架，"能加载 + 一条废弃警告" 比 "界面一切正常但完全失灵" 好得多。要发双声明那份也行，但必须在说明里写清 LSPosed 需 ≥2.2.x |
 | SUMMARY / README / 图标 | ◐ 待写 | 首页只露 SUMMARY 一行；图标来自 APK 自己的启动图标（我们是自适应 XML，没有 512px PNG）—— 上架前建议补一张，效果差别很大 |
-| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（我们是 **`51-1.40.0`**：11-01 那版是 `50-…`，现版已抬到 51），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
+| Release 规范 | ✅ 规则清楚 | Tag 必须是 `<versionCode>-<versionName>`（现版是 **`52-1.40.1`**；历史：`51-1.40.0` / 更早 `50-…`），而且**创建 release 时就把 APK 附件一起传上去**；事后只替换附件，机器人看不到，商店里版本号就不会更新 |
 | 商店仓库存不放源码 | ✅ | README 明说不要往那个仓库传源码 —— 我们照常把源码放在自己的仓库 |
 
 ## 3. 包名：两条路怎么挑，以及最后走了哪条
@@ -110,7 +110,7 @@
    → 机器人建仓库并邀请你为 maintainer（**Description/Title/Home Page 只能在浏览器里改，
    README 明说 API 改不了**）。
 5. 在新仓库填 `SUMMARY`（一行）与 `README.md`（详细介绍），**不要**传源码。
-6. 建 GitHub Release：Tag **`51-1.40.0`**，Title `1.40.0`，正文=changelog，
+6. 建 GitHub Release：Tag **`52-1.40.1`**，Title `1.40.1`，正文=changelog，
    **同一个 release 里把 APK 附件一起传上去**，Home Page 指回源码仓库或支持群。
 7. 等 5~60 分钟；在 LSPosed 管理器 → 商店 里按包名搜一次，确认图标/SUMMARY/版本号都对，
    并且**在测试机上验一次"从商店点更新"能不能装上**（商店→安装走的也是签名，
@@ -122,7 +122,7 @@
   - `把小米大师变焦环变成通用旋钮：滚动、音量、亮度、视频进度，全在环上`
   - `Turn the Xiaomi Master Zoom Ring into a universal dial: scroll, volume, brightness, video seek`
 - issue 标题：`[submission] io.github.tvtjiesen.omniring`
-- Release Tag / Title：**`51-1.40.0`** / `1.40.0`
+- Release Tag / Title：**`51-1.40.0`** / `1.40.0`（历史；当前已发 **`52-1.40.1`** / `1.40.1`）
 - README.md 骨架：直接用源码仓库 README 的"它是什么 / 怎么装 / 需要 root + LSPosed /
   作用域要勾哪些 / 支持的系统（HyperOS 3 待回执、HyperOS 4 已实测）/ 已知问题 /
   免责声明（改系统输入路径，刷机风险自担）/ 上游致谢 NextAlone/HyperZoomRing + GPL-3.0"。
@@ -172,7 +172,7 @@
 | 机器人建仓库 | `Xposed-Modules-Repo/io.github.tvtjiesen.omniring`（main 分支，12:21:47Z） |
 | 维护者邀请 | id `341041488`，已用 `gh api -X PATCH user/repository_invitations/341041488` **接受**；权限从 `pull` 变 `maintain+push` |
 | 仓库文件 | `SUMMARY`（99 B）、`README.md`（1809 B）已推上去；**未传源码**（机器人明说不要） |
-| Release | tag **`51-1.40.0`** / title `1.40.0` / 附件 **`OmniRing-1.40.0-signed-legacy.apk`（4,722,279 B，`state=uploaded`）** |
+| Release | tag **`52-1.40.1`** / title `1.40.1` / 附件 **`OmniRing-1.40.1-signed-legacy.apk`（4,744,375 B，`state=uploaded`）**；上一版 `51-1.40.0` 保留 |
 | 仓库描述 / Home Page | ⛔ **API 改不了**（`PATCH /repos/…` 回 404 —— maintain 不是 admin）。机器人公告原文：*"Make sure you're not leaving the GitHub repository description blank … **DO IT IN WEB BROWSER, API DON'T HAVE ENOUGH PERMISSION TO SET IT, WHOEVER IGNORE THIS, YOU HAVE BEEN WARNED**"* |
 
 **所以只剩浏览器里填一格**：仓库首页右上 About 的 ⚙ → Description 填
@@ -212,7 +212,7 @@ Source & changelog: https://github.com/TvTjiesen/OmniRing
 
 | 字段 | 值 |
 | --- | --- |
-| Tag | `51-1.40.0` |
+| Tag | `52-1.40.1`（上一版 `51-1.40.0`） |
 | Release title | `1.40.0` |
 | 附件 | `OmniRing-1.40.0-signed-legacy.apk`（重签后从 `build/` 里取） |
 | 正文 | 下面这份 changelog |

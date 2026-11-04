@@ -733,3 +733,38 @@ USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 
 ### 没验的
 - `scope.list` 自动勾选仍没验过（要卸载重装；老装机已被手工勾过，LSPosed 只在"当前勾选为空"时补推荐作用域）。
 - 正式签名包还没出（jks 口令只有业主知道，不经我手）；本次上架的 release 用他签的那份。
+
+## 第二十二批（2026-11-04）· 1.40.1 正式签名并发布到 LSPosed 商店
+
+### 签名（业主双击 `tools\sign_key.bat`，口令只进进程内存，不存盘、不进命令行、不经 agent）
+- `build/OmniRing-1.40.1-signed.apk`：4,744,848 B、md5 `5799074800c7ae84d5903ccac6814a2c`、445 entries、
+  `META-INF/xposed/` 三条齐全（双入口）。
+- `build/OmniRing-1.40.1-signed-legacy.apk`：4,744,375 B、md5 `e70c13d9698534442fed40f1d333a2f1`、442 entries、
+  **无 `META-INF/xposed`**（legacyOnly 车道，上架与发酷友用这一份）。
+- **独立回读（不采信脚本自述）**：`apksigner verify --print-certs` 两份均
+  `CN=OmniRing, OU=TvTjiesen, O=TvTjiesen, L=Hangzhou, ST=Zhejiang, C=CN` /
+  SHA-256 `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b` ⇒ 与
+  `E:\dev\keys\omniring-release-key-fingerprint.txt` 一致（`CN=Android Debug` 的回落签名已消失）。
+- `aapt2 dump badging` 两份均 `io.github.tvtjiesen.omniring` / `versionCode='52'` / `versionName='1.40.1'` /
+  `application-label:'万能变焦环'`；dex 戳 `cfg49` 在 `classes.dex`。
+
+### 发布
+- GitHub Release：`Xposed-Modules-Repo/io.github.tvtjiesen.omniring`、tag **`52-1.40.1`**、title `1.40.1`、
+  附件 `OmniRing-1.40.1-signed-legacy.apk`（4,744,375 B、`state=uploaded`、`draft=False`、`prerelease=False`，
+  **已标记 Latest**）。回读 `releases/tags/52-1.40.1` 与 `gh release list` 双向确认。
+- 商店仓库 `description` 仍为 `OmniRing 万能变焦环`、`homepage` 指向源码仓库（两个收录条件保持满足）。
+
+### 真机
+- 用**正式签名**的双入口包覆盖安装（签名与设备上调试签名的包不兼容，`adb install -r` 直接 `Success` 说明
+  设备认了新证书；随后 `su -c 'md5sum $(pm path …)'` = `5799074800c7ae84d5903ccac6814a2c`，与桌面那份一致）。
+- `dumpsys package`：`versionCode=52` / `versionName=1.40.1` / `lastUpdateTime=2026-11-04 11:50:23`。
+- `kill -9 $(pidof system_server)` 后探针回读：`build=cfg49`、`recv=ok`、`PLUS=scroll`、
+  `pushed=1 keys=17 src=snapshot`、`reg=ok`；`pidof lspd`=5090 存活、无新 crash 文件。
+
+### 文档
+- `docs/LSPOSED-STORE.md`：tag / 附件 / release 表格五处刷新到 `52-1.40.1`，旧值标为历史。
+- `HANDOVER.md`：§7 记本轮发布与两份包 md5；§12 快照更新。
+- 酷安「只发更新」文案改成 1.40.1（`build/coolapk_update_post.md`，草稿不入库；桌面副本 `酷安更新文案.md`）。
+
+### 没验的
+- `scope.list` 自动勾选仍未验（要卸载重装；`adb install -r` 保留数据与已勾选作用域，看不出自动补勾效果）。

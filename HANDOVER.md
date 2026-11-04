@@ -109,7 +109,10 @@
 - `build/OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与 `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`）是旧的**调试签名**产物，别再拿去发。
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
   **2026-11-04 刷新**：versionCode 已抬到 **52 / 1.40.1**（`cfg49` 是行为修复：探针"清 0"协议、反馈包三行、自测按钮连按），
-  下一版 tag 为 **`52-1.40.1`**、附件名 `OmniRing-1.40.1-signed-legacy.apk`。
+  tag **`52-1.40.1`** / title `1.40.1` / 附件 `OmniRing-1.40.1-signed-legacy.apk`（4,744,375 B，`state=uploaded`）**已发布**
+  （`gh release create`，11-04 11:50）。两份正式签名包 md5：`-signed.apk` `5799074800c7ae84d5903ccac6814a2c`、
+  `-signed-legacy.apk` `e70c13d9698534442fed40f1d333a2f1`，apksigner 独立回读均 `CN=OmniRing…` /
+  SHA-256 `222fc290…45bc1b`（与 `E:\dev\keys\omniring-release-key-fingerprint.txt` 一致）。
   旧的 `51-1.40.0` 那段记录如下（历史）：
   `assembleRelease` 两种变体都已从当前源码验过能出（`build/rc_dual.apk` / `build/rc_legacy.apk`，dex 戳 `cfg46`），
   正式签名包已于 2026-11-02 20:09 出好（见上一条，md5 `70705b8d…`），**下一步只剩提 issue + 建 release 两个网页操作**。
