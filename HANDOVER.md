@@ -121,8 +121,23 @@
   `aapt2` 均 `io.github.tvtjiesen.omniring` / versionCode 51 / 1.40.0 / 「万能变焦环」，dex 戳 `cfg46`。**上架用 legacy 那份。**
 - `build/OmniRing-1.40.0.apk`（md5 `3741a2a3…`）与 `OmniRing-1.40.0-legacy.apk`（md5 `a006beed…`）是旧的**调试签名**产物，别再拿去发。
 - 商店流程与可抄文案：`docs/LSPOSED-STORE.md`（一手规则来自 `Xposed-Modules-Repo/submission`；tag 必须是 `<versionCode>-<versionName>`，且 **apk 附件要在创建 release 时就传上去**）。
-  **2026-11-04 刷新**：versionCode 已抬到 **52 / 1.40.1**（`cfg49` 是行为修复：探针"清 0"协议、反馈包三行、自测按钮连按），
-  tag **`52-1.40.1`** / title `1.40.1` / 附件 `OmniRing-1.40.1-signed-legacy.apk`（4,744,375 B，`state=uploaded`）**已发布**
+  **2026-11-04 傍晚刷新（当前最新）**：versionCode **53 / 1.40.2**（`cfg50`：适配卡"未被加载"与"没数据"不再打脸，
+  `NO_SAMPLES` 判 PASS、`DISABLED` 单独文案）。tag **`53-1.40.2`** / title `1.40.2` /
+  附件 `OmniRing-1.40.2-signed-legacy.apk`（4,745,843 B，`state=uploaded`）**已发布**（`gh release create`，11-04 18:17），
+  已是 **Latest**。两份正式签名包：`build/OmniRing-1.40.2-signed.apk` 4,746,316 B / md5 `055142ec3502404113f4069afe4a7597`
+  （445 entries，`META-INF/xposed` 3 条、`scope.list`=`system\n`）、`build/OmniRing-1.40.2-signed-legacy.apk`
+  4,745,843 B / md5 `20ecd34178ba7395e6b29acdf9e4704f`（442 entries，0 条）；apksigner 独立回读两份均
+  `CN=OmniRing, OU=TvTjiesen, O=TvTjiesen, L=Hangzhou, ST=Zhejiang, C=CN` / SHA-256 `222fc290…45bc1b`、
+  SHA-1 `f0a379802f62c32ce749aa2829ff47f243bcef0d`；`aapt2` 均 `io.github.tvtjiesen.omniring` / versionCode 53 /
+  1.40.2 / 「万能变焦环」/ compileSdk 37；dex 戳两份都是 `cfg50`。桌面副本 `桌面\OmniRing 1.40.2\`。
+  **签名入口已重做**：桌面 `打正式签名包.bat`（195 B 纯 ASCII）只调 `tools/sign_release.ps1`；
+  ps1 **必须保留 UTF-8 BOM**（丢了 PS 5.1 按 GBK 解，报一堆"意外的标记"）、Gradle 走 `Invoke-Gradle`
+  重定向进临时日志（否则 stderr 触发 `NativeCommandError`）、口令先用 `Test-KeystorePassword` 走 stdin 预检
+  （错 3 次就停下），失败时完整日志留在 `build/gradle_error.log`。
+  `gh release create` 偶发 `HTTP 404 uploads.github.com/.../assets`（release 已建但附件传失败、随后整条被清掉），
+  **原样重跑一次即成功**；建完必须 `gh api releases` 回读 `assets[].state == uploaded`。
+  以下 1.40.1 记录为历史：versionCode **52 / 1.40.1**（`cfg49` 是行为修复：探针"清 0"协议、反馈包三行、自测按钮连按），
+  tag **`52-1.40.1`** / title `1.40.1` / 附件 `OmniRing-1.40.1-signed-legacy.apk`（4,744,375 B，`state=uploaded`）
   （`gh release create`，11-04 11:50）。两份正式签名包 md5：`-signed.apk` `5799074800c7ae84d5903ccac6814a2c`、
   `-signed-legacy.apk` `e70c13d9698534442fed40f1d333a2f1`，apksigner 独立回读均 `CN=OmniRing…` /
   SHA-256 `222fc290…45bc1b`（与 `E:\dev\keys\omniring-release-key-fingerprint.txt` 一致）。
@@ -343,13 +358,20 @@
   `POST /git/commits`（`parents` = 远端 head）→ `PATCH /git/refs/heads/main`。
   注意 API 造出来的 commit sha 与本地 `git commit` 的不同（author/committer/时间戳序列化差异），
   落地后要**用同样的 tree+parent+message 在本地 `git hash-object -t commit -w --stdin` 复现同一个对象**，
-  再 `git reset --hard <sha>` 让本地与远程字节一致（时间戳按远端 `date` 换算成 epoch，**时区必须写 `+0000`**；
-  写 `+0800` 算出来的 sha 对不上，我第一次就是这么错的）。author/committer 用 GitHub 账号
-  `TvTjiesen <jies96188@gmail.com>`。落地后 `git update-ref refs/remotes/origin/main <sha>`。
+  再 `git reset --hard <sha>` 让本地与远程字节一致。author/committer 用 GitHub 账号
+  `TvTjiesen <jies96188@gmail.com>`，epoch 用 API 返回的 `committer.date`。落地后
+  `git update-ref refs/remotes/origin/main <sha>`。
+  **⚠ 时区不能凭经验写**：`3ab37a2` 那次要 `+0000`，`661b99f`/`c2f2e94`/`42e3f83`/`5657bb5` 那几次要 `+0800`
+  —— 同一个提交只能试出来，**两种都试**，写错 sha 就对不上。
+- **这些步骤已经脚本化：`python tools/push_via_api.py`**（2026-11-04 起，别再手写临时脚本）：
+  逐个提交只搬 diff 里涉及的路径（`POST /git/blobs` → `/git/trees` with `base_tree` → `/git/commits`），
+  每造完一棵 tree 立刻与本地 `git rev-parse <commit>^{tree}` 比对，不一致就退出；**分支引用最后才 PATCH**，
+  中途失败不会留下半截远端历史。支持 `--dry-run` / `--repo` / `--branch`，token 从 `gh auth token` 取。
+  它会自动试 `+0000`/`+0800`×三种 message 尾部换行，命中即用。
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-04 17:40 左右）
+## 12. 此刻状态快照（2026-11-04 18:20 左右）
 
 - 工作树：`versionCode 53 / versionName 1.40.2`、`BUILD_TAG cfg50`；单测 **39 XML / 249 断言 0 失败**，
   四语 **246/246**。
@@ -362,12 +384,12 @@
 - 装机数据往返也验过：卸载前 `su` 拷 `/data/data/<pkg>` 到 `/data/local/tmp/omniring_bak/`，
   重装后把 `files/` `shared_prefs/` 拷回并 `chown` 到新 uid（本次 uid 从 `u0_a342` 变成 `u0_a477`），
   配置 `shared_prefs/hyperzoomring_config.xml` 完好，`hzr_cfg=pushed=1 keys=17 … PLUS=scroll reg=ok`。
-- **1.40.2 待发布**：`assembleRelease` 已出 `app/build/outputs/apk/release/app-release.apk` 4,746,316 B
-  / md5 `49a2aaa3b31d1ca199c7aae524dab00c`（调试签名，**必须重签**）。
-  桌面 `打正式签名包.bat` 已改成自动读 `versionName`（原来硬编码 `OmniRing 1.40.1` 目录）→ 输出到
-  `桌面\OmniRing <versionName>\`。发布说明稿在 `build/store/RN142.md`。tag 应为 **`53-1.40.2`**。
-- **1.40.1 已发布**：GitHub release `52-1.40.1`（Latest），附件 `OmniRing-1.40.1-signed-legacy.apk` 4,744,375 B，
-  正式签名 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b`（详见 §7）。本地 HEAD = 远程 main。
+- **1.40.2 已发布（当前最新）**：GitHub release tag **`53-1.40.2`** / title `1.40.2` / 附件
+  `OmniRing-1.40.2-signed-legacy.apk` 4,745,843 B（`state=uploaded`），已是 **Latest**。
+  正式签名包 `build/OmniRing-1.40.2-signed.apk` 4,746,316 B / `-signed-legacy.apk` 4,745,843 B，
+  两份都是 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b` / dex 戳 `cfg50`（详见 §7）；桌面副本
+  `桌面\OmniRing 1.40.2\`。**手机上装的还是 17:28 那份 debug 包**（md5 `a39f72bb…`，
+  与正式包同签名族不同——换正式签名要先卸载，会带走 LSPosed 里的启用记录，需业主在场）。
 - **商店页 README 已更新两次**：先是支持范围口径（commit `a7ff0a74`），然后补"作用域会自动勾选"
   三步说明（commit `6736246`，1081 B）；两处都已回读校验一致。本地源文件是 `build/store/README.md`
   （`build/` 不入库）。
@@ -377,7 +399,8 @@
   `模块加载 = 已加载并在跑` / `环数据 = 累计 201 次有效样本`；**反馈包也复测过**（17:22，
   `build/diag_cfg50.txt`，三行非空、`kept=57`、`rooted=true`）。
 - **仍未验**：① 商店是否已收录（只能业主手机上搜 omniring）；② 新文案「未支持（不保证可用）」
-  的显示效果——这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器。
+  的显示效果——这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器；
+  ③ 正式签名包在真机上的行为（现在装的是 debug 签名）。
 - **待业主定**：`hzr_scrub_y`（他机 0.27 vs 代码默认/README 0.45，我建议两边都不动）。
 
 ## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）

@@ -859,7 +859,7 @@ val loadedState = when (verdict) {
 - 界面复验**未完**：dump 时设备正好锁屏（`mWakefulness=Dozing`、`isKeyguardShowing=true`、
   `mCurrentFocus=NotificationShade`），截到的是通知栏，不是适配卡。等解锁后补一张。
 
-## 第二十四批（2026-11-04）· 1.40.2：作用域自动勾选真机验证通过 + 版本号进位
+## 第二十五批（2026-11-04）· 1.40.2：作用域自动勾选真机验证通过 + 版本号进位
 
 ### 这一批改了什么
 
@@ -917,3 +917,55 @@ val loadedState = when (verdict) {
 - `assembleDebug` → `app-debug.apk` md5 `a39f72bb484f0d531e653407e610b31a` / 47,215,085 B；
   装机端 md5 回读一致；`versionCode=53 / versionName=1.40.2`。
 - 真机：`pidof lspd`=5090 存活、`/data/adb/lspd/log/` 无新 crash。
+## 第二十六批（2026-11-04）· 1.40.2 正式签名与发布（无代码改动）
+
+本批只动发布链与文档，App 代码零改动，包内构建戳仍是 `cfg50`。
+
+### 签名入口重做（桌面 `打正式签名包.bat` → `tools/sign_release.ps1`）
+
+- bat 退回到五行纯 ASCII：不再用 `for /f` 解析版本号（那层单引号转义在 cmd 里必坏），
+  版本号解析与桌面拷贝全部搬进 ps1。
+- ps1 **必须带 UTF-8 BOM**：PowerShell 5.1 会把无 BOM 的 UTF-8 当 GBK 解，中文注释全乱后报
+  一串"表达式或语句中包含意外的标记"。
+- Gradle 调用改走 `Invoke-Gradle`：stdout+stderr 一起重定向进临时日志再判退出码。
+  PS 5.1 的 `$ErrorActionPreference='Stop'` 会把原生命令的 stderr 当致命异常抛
+  （`NativeCommandError`），而 Gradle 总往 stderr 写提示，构建其实成功了脚本却炸。
+- 新增 `Test-KeystorePassword`：用 keytool `-list` 试读，**口令走 stdin**（不进命令行、不进环境变量、
+  不落盘），错 3 次停下并弹窗。`KeytoolException: keystore password was incorrect` 看不出"打错一个字"，
+  只会让人以为钥匙坏了 —— 这条预检把误导消掉。
+- 签名信息改由 `Start-Process -RedirectStandardOutput` + 读文件获取：`(cmd /c ...) 2>&1 | Out-String`
+  在本机 PS 5.1 恒返回空串，会让好包被判成"与正式指纹不一致"。
+- 失败时完整 Gradle 日志留在 `build/gradle_error.log`（不要删日志，删了等于不给线索）。
+
+### 1.40.2 正式签名产物（业主本人输口令，口令未过 agent 手）
+
+- `build/OmniRing-1.40.2-signed.apk` 4,746,316 B / md5 `055142ec3502404113f4069afe4a7597`，
+  445 entries，`META-INF/xposed/` 三条（`java_init.list` / `module.prop` / `scope.list`=`system\n`）。
+- `build/OmniRing-1.40.2-signed-legacy.apk` 4,745,843 B / md5 `20ecd34178ba7395e6b29acdf9e4704f`，
+  442 entries，`META-INF/xposed/` 0 条。
+- 独立回读（不采信脚本自述）：两份 `apksigner verify --print-certs` 均
+  `CN=OmniRing, OU=TvTjiesen, O=TvTjiesen, L=Hangzhou, ST=Zhejiang, C=CN` /
+  SHA-256 `222fc290a5ade9398b0100e9683127118286f5e145dec681b57ae9891945bc1b` /
+  SHA-1 `f0a379802f62c32ce749aa2829ff47f243bcef0d`；`aapt2 dump badging` 两份均
+  `io.github.tvtjiesen.omniring` / versionCode 53 / versionName 1.40.2 / 「万能变焦环」/ compileSdk 37；
+  dex 戳两份都是 `cfg50`（`classes.dex`）。
+
+### 发布
+
+- Release tag **`53-1.40.2`** / title `1.40.2` / 附件 `OmniRing-1.40.2-signed-legacy.apk`
+  （4,745,843 B，`state=uploaded`），已是 Latest。
+- 踩坑：`gh release create` 偶发 `HTTP 404` 打在 `uploads.github.com/.../assets`，
+  此时 release 已建但附件没传上、随后整条被清掉（`gh api releases/<id>` 变 404）。
+  **原样重跑一次即成功**；建完必须回读 `assets[].state == uploaded` 才算数。
+- 备注：手机上装的仍是 17:28 那份 debug 签名包（md5 `a39f72bb…`）。换正式签名要先卸载，
+  会带走 LSPosed 里的模块启用记录，需业主在场，故本轮未换。
+
+### 工具
+
+- 新增 `tools/push_via_api.py`：`github.com:443` 的 git 协议反复被墙（`Failed to connect ... after 21082 ms` /
+  `send-pack: unexpected disconnect`），而 `api.github.com` 一直通。该脚本走 Git API 逐个提交搬运
+  （blob → tree with `base_tree` → commit → 最后才 PATCH 分支引用），每棵树与本地
+  `git rev-parse <commit>^{tree}` 比对，再用 `git hash-object -t commit -w --stdin` 复现同一 sha
+  让本地与远程字节一致。支持 `--dry-run` / `--repo` / `--branch`。
+- **时区教训**：复现提交对象时时区不能凭经验写 —— `3ab37a2` 要 `+0000`，
+  `661b99f`/`c2f2e94`/`42e3f83`/`5657bb5` 要 `+0800`，脚本里两种都试。
