@@ -369,6 +369,9 @@
   `build/adapt_cfg50.png`）：适配卡显示 `完整适配` / `3/3 项通过` / `模块加载 = 已加载并在跑` /
   `环数据 = 累计 201 次有效样本`——回滚前那张卡在这台机上同时说"未被加载"和"还没收到"，
   现在两句都对上了。
+- **`cfg50` 上反馈包复测通过**（17:22，`build/diag_cfg50.txt`，6,213 B）：`hzr_entry` /
+  `hzr_cfg` / `hzr_map` 三行都非空且都是 `build=cfg50`，`hzr_cfg=pushed=4 keys=17 … reg=ok`，
+  `=== logcat (rooted=true, kept=57, probe=true) ===`——即 `cfg49` 的探针修复在这一版没退化。
 - **仍未验**：① `scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
   ② 商店是否已收录（只能业主手机上搜 omniring）；③ 新文案「未支持（不保证可用）」的显示效果
   —— 这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器或临时改 `TESTED_MIN_SDK`。
