@@ -54,13 +54,21 @@ function Invoke-Gradle([string]$Task, [string[]]$ExtraArgs) {
     $p = Start-Process -FilePath 'cmd.exe' -ArgumentList ('/c ' + $line) -Wait -PassThru -NoNewWindow
     $tail = @(Get-Content $log -ErrorAction SilentlyContinue | Select-Object -Last 3)
     foreach ($t in $tail) { Write-Host ("   " + $t) -ForegroundColor DarkGray }
-    if (Test-Path $log) { Remove-Item $log -Force -ErrorAction SilentlyContinue }
     if ($p.ExitCode -ne 0) {
-        throw ("gradle $Task 失败（exit=" + $p.ExitCode + "）。完整日志已删，重跑一遍或用 Android Studio 看原因。")
+        # 失败时别把日志删了、也别只给"失败"两个字 —— 把真正的错误行打出来，
+        # 否则用户只能看到 exit=1 而完全不知道是口令错、还是有文件锁、还是代码编译不过。
+        $more = @(Get-Content $log -ErrorAction SilentlyContinue | Select-Object -Last 25)
+        Write-Host '   ── gradle 输出（尾部 25 行） ──' -ForegroundColor Red
+        foreach ($m in $more) { Write-Host ('   | ' + $m) -ForegroundColor DarkGray }
+        $keep = Join-Path $Repo 'build\gradle_error.log'
+        if (Test-Path $log) { Copy-Item $log $keep -Force; Remove-Item $log -Force -ErrorAction SilentlyContinue }
+        throw ("gradle $Task 失败（exit=" + $p.ExitCode + "）。完整输出在 build\gradle_error.log")
     }
+    if (Test-Path $log) { Remove-Item $log -Force -ErrorAction SilentlyContinue }
 }
 
-if (-not (Test-Path $Keystore)) { Write-Host "!! 没有密钥：$Keystore" -ForegroundColor Red; exit 1 }if (-not (Test-Path $FingerprintFile)) { Write-Host "!! 没有指纹文件：$FingerprintFile" -ForegroundColor Red; exit 1 }
+if (-not (Test-Path $Keystore)) { Write-Host "!! 没有密钥：$Keystore" -ForegroundColor Red; exit 1 }
+if (-not (Test-Path $FingerprintFile)) { Write-Host "!! 没有指纹文件：$FingerprintFile" -ForegroundColor Red; exit 1 }
 
 $want = (Get-Content -Raw $FingerprintFile).Trim()
 Write-Host "记录的证书指纹：$want" -ForegroundColor Cyan
@@ -90,32 +98,81 @@ if ($SelfTest) {
     exit 0
 }
 
+function Test-KeystorePassword([string]$Store, [string]$Password) {
+    # 先用 keytool 验一下口令，别让错误口令一路跑到 gradle 里再变成
+    # "KeytoolException: Failed to read key omniring from store ... keystore password was incorrect" ——
+    # 那句话看不出是"你打错字了"，只会让人以为钥匙或者配置坏了。
+    # 口令走 stdin（不进命令行、不进环境变量、不落盘）。
+    $keytool = $null
+    foreach ($c in @(
+            (Join-Path $env:JAVA_HOME 'bin\keytool.exe'),
+            'C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot\bin\keytool.exe',
+            'keytool.exe')) {
+        if ($c -and ($c -eq 'keytool.exe' -or (Test-Path $c))) { $keytool = $c; break }
+    }
+    if (-not $keytool) { return $null }   # 找不到 keytool 就不预检，交给 gradle 判
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $keytool
+    $psi.Arguments = '-list -keystore "' + $Store + '"'
+    $psi.RedirectStandardInput = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $p.StandardInput.WriteLine($Password)
+    $p.StandardInput.Close()
+    $outTxt = $p.StandardOutput.ReadToEnd()
+    $errTxt = $p.StandardError.ReadToEnd()
+    if (-not $p.WaitForExit(20000)) { try { $p.Kill() } catch {}; return $null }
+    return ($p.ExitCode -eq 0)
+}
+
 Add-Type -AssemblyName System.Windows.Forms
-$script:pw = $null
-$f = New-Object System.Windows.Forms.Form
-$f.Text = 'OmniRing 正式签名打包'
-$f.FormBorderStyle = 'FixedDialog'; $f.MaximizeBox = $false; $f.MinimizeBox = $false
-$f.TopMost = $true; $f.StartPosition = 'CenterScreen'
-$f.ClientSize = New-Object System.Drawing.Size(460, 210)
 Add-Type -AssemblyName System.Drawing
-$lbl = New-Object System.Windows.Forms.Label
-$lbl.Text = "要用这把钥匙打正式包：`r`n$Keystore`r`n`r`n输入口令（只进这个进程的内存，退出就没了）。"
-$lbl.SetBounds(16, 14, 428, 86); $f.Controls.Add($lbl)
-$tb = New-Object System.Windows.Forms.TextBox
-$tb.UseSystemPasswordChar = $true
-$tb.SetBounds(16, 108, 428, 26); $f.Controls.Add($tb)
-$okBtn = New-Object System.Windows.Forms.Button
-$okBtn.Text = '开始打包'; $okBtn.SetBounds(248, 152, 96, 30)
-$okBtn.DialogResult = [System.Windows.Forms.DialogResult]::OK; $f.Controls.Add($okBtn)
-$cancel = New-Object System.Windows.Forms.Button
-$cancel.Text = '取消'; $cancel.SetBounds(348, 152, 96, 30)
-$cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel; $f.Controls.Add($cancel)
-$f.AcceptButton = $okBtn
-$res = $f.ShowDialog()
-$pw = $tb.Text
-$f.Dispose()
-if ($res -ne [System.Windows.Forms.DialogResult]::OK -or [string]::IsNullOrWhiteSpace($pw)) {
-    Write-Host '已取消，什么都没构建。' -ForegroundColor Yellow; exit 0
+$pw = $null
+$attempt = 0
+while ($true) {
+    $attempt++
+    $f = New-Object System.Windows.Forms.Form
+    $f.Text = 'OmniRing 正式签名打包'
+    $f.FormBorderStyle = 'FixedDialog'; $f.MaximizeBox = $false; $f.MinimizeBox = $false
+    $f.TopMost = $true; $f.StartPosition = 'CenterScreen'
+    $f.ClientSize = New-Object System.Drawing.Size(460, 210)
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = "要用这把钥匙打正式包：`r`n$Keystore`r`n`r`n输入口令（只进这个进程的内存，退出就没了）。"
+    $lbl.SetBounds(16, 14, 428, 86); $f.Controls.Add($lbl)
+    $tb = New-Object System.Windows.Forms.TextBox
+    $tb.UseSystemPasswordChar = $true
+    $tb.SetBounds(16, 108, 428, 26); $f.Controls.Add($tb)
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = '开始打包'; $okBtn.SetBounds(248, 152, 96, 30)
+    $okBtn.DialogResult = [System.Windows.Forms.DialogResult]::OK; $f.Controls.Add($okBtn)
+    $cancel = New-Object System.Windows.Forms.Button
+    $cancel.Text = '取消'; $cancel.SetBounds(348, 152, 96, 30)
+    $cancel.DialogResult = [System.Windows.Forms.DialogResult]::Cancel; $f.Controls.Add($cancel)
+    $f.AcceptButton = $okBtn
+    $res = $f.ShowDialog()
+    $pw = $tb.Text
+    $f.Dispose()
+    if ($res -ne [System.Windows.Forms.DialogResult]::OK -or [string]::IsNullOrWhiteSpace($pw)) {
+        Write-Host '已取消，什么都没构建。' -ForegroundColor Yellow; exit 0
+    }
+    $verdict = Test-KeystorePassword $Keystore $pw
+    if ($verdict -eq $true) { break }
+    if ($verdict -eq $false) {
+        Write-Host ("口令不对（第 $attempt 次）。这把钥匙是 2026-10 生成的，找当时记下的那个口令。") -ForegroundColor Red
+        if ($attempt -ge 3) {
+            Write-Host '连着三次不对，先停下了 —— 别再试了，先去密码管理器里找记录。' -ForegroundColor Red
+            [System.Windows.Forms.MessageBox]::Show(
+                "口令连续 3 次不对，已停下。`r`n`r`n先去密码管理器里找这把钥匙的口令：`r`n$Keystore`r`n`r`n找不到的话告诉我，我们重新生成一把（现在还没正式发布过，换钥匙没有代价）。",
+                'OmniRing · 口令不对') | Out-Null
+            exit 1
+        }
+        continue
+    }
+    Write-Host '跳过口令预检（本机没找到 keytool），直接交给 gradle 判。' -ForegroundColor Yellow
+    break
 }
 
 $env:KEYSTORE_FILE = $Keystore
