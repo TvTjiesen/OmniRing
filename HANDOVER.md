@@ -365,10 +365,13 @@
   装在 `/data/app/~~FXv3WCL7qp0qpFDadqtaYg==/…/base.apk`）；
   `cfg49` 真机端到端已验完（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
   `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
-- **未验**：① 适配卡那一眼 —— `cfg50` 改的就是这张卡的显示，但 dump 时手机锁屏
-  （`mWakefulness=Dozing`、`isKeyguardShowing=true`），截到的是通知栏，需要解锁后再看一眼；
-  ② `scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
-  ③ 商店是否已收录（只能业主手机上搜 omniring）。
+- **`cfg50` 的 UI 已肉眼确认**（2026-11-04 17:17，解锁后重 dump + 截图
+  `build/adapt_cfg50.png`）：适配卡显示 `完整适配` / `3/3 项通过` / `模块加载 = 已加载并在跑` /
+  `环数据 = 累计 201 次有效样本`——回滚前那张卡在这台机上同时说"未被加载"和"还没收到"，
+  现在两句都对上了。
+- **仍未验**：① `scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
+  ② 商店是否已收录（只能业主手机上搜 omniring）；③ 新文案「未支持（不保证可用）」的显示效果
+  —— 这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器或临时改 `TESTED_MIN_SDK`。
 - **待业主定**：`hzr_scrub_y`（他机 0.27 vs 代码默认/README 0.45，我建议两边都不动）。
 
 ## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）
