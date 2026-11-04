@@ -81,3 +81,6 @@ docs/superpowers/
 !debug.keystore
 keystore.properties
 *passfile*
+
+# gh CLI 的设备标识（别进公开仓库）
+.local/

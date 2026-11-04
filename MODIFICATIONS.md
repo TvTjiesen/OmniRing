@@ -622,3 +622,66 @@ USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 
 第十八批留了两条没验。本轮把第一条补上了：**含 `keepCrashLine` 的那版（`1cd70569…`）确实在
 真机上跑过**，装的就是它，探针回读 `build=cfg48`。第二条（`scope.list` 自动勾选）仍需
 卸载重装才看得出，**依然未验**。
+
+## 第二十批（2026-11-04）· 探针"清 0"协议失效（`cfg49`）
+
+上一批（第十八批）以为反馈包已经修好了 —— 11-03 20:34 那份 16,580 B 的包确实三行齐全。
+**那次是碰巧**：当时 `hzr_probe` 里是别的值，位图和上一轮不同，第一次触发就成功了。
+11-04 复测，同一个包只剩下 `hzr_cfg=pushed=0 … PLUS=-`、`hzr_map=PLUS:-|MINUS:-`，
+而 `hzr_cfg_state` 写着 `2;17;…`（配置明明早推成功了）。
+
+### 根因（两处，缺一不可）
+
+1. **`hook/DebugProbe.kt` 读到 0 不更新记忆**。老写法是
+   `if (cmd == 0L || cmd == lastCmd) return` —— 清 0 那一拍直接 return，`lastCmd`
+   还停在上一轮的 8832，于是"再写回 8832"被判成"没变"。清 0 这个动作**在边沿判定里
+   等于没发生过**。
+2. **清 0 与写位图的间隔小于探针轮询周期**。`ZoomRingSensorListener.PROBE_INTERVAL_MS`
+   是 2000ms（`:23`，`postDelayed` 每拍调一次 `probeLoop`），而 `DiagReport` 里
+   `PROBE_RESET_GAP_MS` 只等 400ms。0 和位图落进同一个 2 秒窗口，那一拍**只看得到位图**。
+   所以只修第 1 条没用 —— 必须有这条间隔配合。
+
+同一个缺陷也吃掉了诊断页「运行注入自测」按钮：`requestProbe` 原来写
+`writeGlobal(0) && writeGlobal(32)`，中间没有间隔，**第一次按能通、第二次按就没反应**。
+用户会以为按钮坏了。
+
+### 改了什么
+
+- `hook/DebugProbe.kt`：`cmd == 0L` 时先 `lastCmd = 0L` 再 return；边沿判定抽成
+  `internal fun shouldRun(cmd: Long, last: Long): Boolean`，纯函数、可单测。
+  `BUILD_TAG` `cfg48` → **`cfg49`**。
+- `util/DiagReport.kt`：`PROBE_RESET_GAP_MS` `400L` → **`2400L`**（跨过 2 秒轮询），
+  `PROBE_WAIT_MS` `4600L` → `6000L`（位图写进去后还要等一拍才轮到它跑）；
+  `requestProbe` 补上同一个 `Thread.sleep(PROBE_RESET_GAP_MS)`。
+- 新增 `app/src/test/kotlin/xyz/nextalone/hyperzoomring/hook/DebugProbeEdgeTest.kt`：
+  `zeroIsIdleNotACommand`（0 不是命令）、`sameValueTwiceOnlyRunsOnce`（挂着不重跑）、
+  `resetThenSameBitmapRunsAgain`（清 0 后同一个位图必须再跑，走完整时序脚本）、
+  `differentBitmapRunsWithoutReset`（位图不同不必先清 0）。
+
+### 验证（都跑过，不是推断）
+
+- `./gradlew --offline :app:testDebugUnitTest --rerun` → **39 个 XML / 248 条断言 /
+  0 失败 0 错误 0 跳过**（上一批 38 / 244，新增的就是上面 4 条）。
+- `python tools/i18n_check.py` → 四语各 **244** 键 OK（本批没动文案，数字未变）。
+- `assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk` md5
+  **`b2f13d2b57441b12ac99d514cc2f6e25`**、48,716,048 B。
+- 装机核过设备端 md5（`su -c 'md5sum $(pm path … | sed s/package://)'`）**与本地一致**。
+- `su -c 'kill -9 $(pidof system_server)'` 后探针回读 `build=cfg49`。
+- **真机连做两轮**「清 0 → 等 3s → 写同一个 8832」：`hzr_cfg` 的 `ageMs`
+  从 `16653` 变到 `26666`，两轮都真跑了；修复前它恒为 `-1`（一次都没触发）。
+- 本轮 `hzr_cfg` 回读：`pushed=2 keys=17 src=push … PLUS=scroll build=cfg49 reg=ok`，
+  `hzr_map=PLUS:scroll|MINUS:scroll`（18 行那批全空的情况不再出现）。
+
+### 没验的
+
+- 界面上的端到端点按未复测：11-04 11:26 起设备锁屏（`isKeyguardShowing=true`、
+  `mWakefulness=Dozing`），**我没有去绕锁屏**，等业主自己解锁后再走一遍
+  （自测按钮连按两次都应生效 + 反馈包三行非空）。
+- `scope.list` 自动勾选依然没验（要卸载重装，见第十八批）。
+
+### 教训
+
+**"碰巧成功过一次"不等于修好了。** 这个 bug 的触发条件是"位图与上一次不同"，
+而第一次跑总是满足的 —— 所以首测必过、复测必挂。以后凡是"改完 A 让 B 重新执行"
+的协议，都要**连续做两次**、并且确认**第二次的输出时间戳真的变了**（这次靠的就是
+`ageMs` 从 -1 变成正数这个判据）。

@@ -4,7 +4,7 @@
 细节在 `README.md`、`MODIFICATIONS.md`、`docs/*.md` 里，下面只标去哪查、不重复抄。
 
 工程：`E:\dev\hzr`（GPL-3.0，fork 自 NextAlone/HyperZoomRing）· 当前 `HEAD` 是
-`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg48`，见 §8D）· 装机身份
+`1.40.0-beta → 1.40.0`（versionCode 51 / 构建戳 `cfg49`，见 §8D）· 装机身份
 `io.github.tvtjiesen.omniring`（**2026-10-31 从上游包名改过来的**，原因见
 `docs/LSPOSED-STORE.md`）。
 
@@ -171,10 +171,16 @@
      `su -c "settings put global …"` 并**回读校验**，不能只看调用没抛异常。
      同一个 bug 也让诊断页「运行注入自测」一直是坏的（写 `hzr_probe` 无效果），
      `cfg48` 改成 `DiagReport.requestProbe(context, 32L)` 才修好。
-  2. 探针是**边沿触发**（`DebugProbe.tick` 里 `cmd == lastCmd` 就 return，见
-     `hook/DebugProbe.kt:48-56`），而 `hzr_entry`/`hzr_cfg`/`hzr_map` **只在探针触发那一刻写**。
-     反馈包因此要先清 0 → 等 400ms → 写位图 8832（128|512|8192）→ 等 4.6s 让两拍探针跑完，
-     否则三个键是过时快照（真机第一版跑出来三个键全空）。
+  2. 探针是**边沿触发**（`DebugProbe.tick`），而 `hzr_entry`/`hzr_cfg`/`hzr_map`
+     **只在探针触发那一刻写**。反馈包因此要先清 0 → 等一拍 → 写位图 8832（128|512|8192）
+     → 等三拍让探针跑完，否则三个键是过时快照（真机第一版跑出来三个键全空）。
+     **这里有两处必须同时成立，少一处就静默失效**（`cfg49` 才补齐，详见 §8D-补）：
+     - `tick` 读到 0 时必须**把 `lastCmd` 也清成 0**。老写法
+       `if (cmd == 0L || cmd == lastCmd) return` 读到 0 直接 return、不更新记忆，
+       于是"清 0 再写回同一个位图"整招是假的。
+     - 清 0 与写位图之间必须**跨过探针轮询周期**（`PROBE_INTERVAL_MS` = 2000ms，
+       `ZoomRingSensorListener.kt:23`）。间隔只有 400ms 时，0 与位图落在同一个 2 秒窗口里，
+       那一拍只看得到位图，"清 0"等于没发生。现用 `PROBE_RESET_GAP_MS = 2400L`。
   3. logcat 用 `-b main,system -s <tag>` 直取并按 tag 筛，**不要抓 4000 行大缓冲再筛**：
      `-t 4000` 只覆盖最近十几秒，模块开机日志早滚掉了，剩下的全是 uiautomator 噪声。
      crash 缓冲**不能整段留**（第一条可能是别的 App 的 native tombstone，几十行寄存器就把
@@ -184,6 +190,28 @@
   `hzr_map=PLUS:scroll|MINUS:scroll`、`enabled=true dispatch=GLOBAL speedThreshold=5`、
   `map.PLUS=scroll`、`legacy_slots=true`），`kept=146`，uiautomator/chatty **0 行**；
   自测按钮点击后 `settings get global hzr_probe` 从 8832 变 32（真进程写进去了）。
+
+### 8D-补：`cfg49` 修掉了"清 0 不起作用"（2026-11-04）
+
+11-03 那次验收是**碰巧成功**的：`hzr_probe` 当时是别的值、位图与上一轮不同，
+所以第一次就触发了。11-04 复测立刻暴露问题 —— 反馈包里 `hzr_cfg=pushed=0 PLUS=-`、
+`hzr_map=PLUS:-|MINUS:-`，而 `hzr_cfg_state` 明明是 `2;17;…`（配置早推成功了）。
+手工复现：`settings put global hzr_probe 0` → 等 1s → 写 8832 → `hzr_cfg` **一动不动**。
+
+两处一起修（缺一不可）：
+- `hook/DebugProbe.kt`：读到 0 时 `lastCmd = 0L` 再 return；边沿判定抽成
+  `internal fun shouldRun(cmd, last)` 便于测试。
+- `util/DiagReport.kt`：`PROBE_RESET_GAP_MS` `400L` → **`2400L`**（跨过 2 秒轮询），
+  `PROBE_WAIT_MS` `4600L` → `6000L`；`requestProbe`（自测按钮）也补上了同一个间隔 ——
+  它原来写 `写0 && 立刻写32`，**第一次按能通、第二次按就再没反应**。
+- 新增 `app/src/test/kotlin/…/hook/DebugProbeEdgeTest.kt`（4 条）钉住语义：
+  `zeroIsIdleNotACommand` / `sameValueTwiceOnlyRunsOnce` / `resetThenSameBitmapRunsAgain`
+  / `differentBitmapRunsWithoutReset`。
+
+验收：单测 **39 XML / 248 断言 / 0 失败**；四语 244 键；装机端 md5 与本地一致
+（`b2f13d2b57441b12ac99d514cc2f6e25`），`kill -9 $(pidof system_server)` 后
+`build=cfg49`；真机连做两轮「清 0 → 等 3s → 写同一个 8832」，`hzr_cfg` 的 `ageMs`
+从 `16653` 变到 `26666`（两轮都真跑了），修复前它恒为 `-1`。
 
 ## 9. 和业主协作的方式（他明确表达过的偏好）
 

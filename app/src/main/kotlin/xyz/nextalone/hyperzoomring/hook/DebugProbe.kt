@@ -30,7 +30,7 @@ object DebugProbe {
      * 实测出现过 App 进程是新代码、system_server 还是旧代码的情况），
      * 所以每条回显都带上这个戳，一眼看出到底加载的是哪一版。
      */
-    const val BUILD_TAG = "cfg48"
+    const val BUILD_TAG = "cfg49"
 
     /**
      * 哪条入口真的把模块带进了 system_server：`legacy` / `modern102` / `none`。
@@ -45,13 +45,33 @@ object DebugProbe {
 
     @Volatile private var lastCmd = 0L
 
+    /**
+     * 边沿判定的纯逻辑，抽出来是为了**能被单元测试钉住**（`DebugProbeEdgeTest`）。
+     *
+     * 规则只有一条但极容易写错：读到 0 表示"空闲"，必须把记忆也清掉，
+     * 否则同一个位图第二次写进来会被当成"没变"而不执行。
+     * 曾经的写法 `if (cmd == 0L || cmd == lastCmd) return` 就是漏了这一步：
+     * 反馈包老老实实清 0 再写 8832，system_server 侧一次都没触发过。
+     *
+     * @return true 表示这一拍该干活；调用方负责把 [last] 更新成 [cmd]
+     */
+    internal fun shouldRun(cmd: Long, last: Long): Boolean = cmd != 0L && cmd != last
+
     fun tick(context: Context) {
         val cmd = try {
             Settings.Global.getLong(context.contentResolver, "hzr_probe", 0L)
         } catch (e: Throwable) {
             0L
         }
-        if (cmd == 0L || cmd == lastCmd) return
+        // 读到 0 必须把 lastCmd 也清掉，否则"清 0 → 再写同一个位图"这招是假的：
+        // lastCmd 还停在旧值，第二次写同一个数被判成"没变"直接 return。
+        // 反馈包就是这么坏过的 —— 它清了 0、写了 8832，而 system_server 侧一次都没触发，
+        // 包里的 hzr_cfg/hzr_map 全是过时快照。
+        if (cmd == 0L) {
+            lastCmd = 0L
+            return
+        }
+        if (!shouldRun(cmd, lastCmd)) return
         lastCmd = cmd
         Log.i(TAG, "PROBE start cmd=$cmd")
 

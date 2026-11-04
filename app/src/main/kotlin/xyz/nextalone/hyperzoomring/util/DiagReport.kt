@@ -46,11 +46,22 @@ object DiagReport {
 
     private const val SU_TIMEOUT_S = 20L
 
-    /** 清 0 与写位图之间的间隔：给 2 秒节拍一次看到"变了"的机会 */
-    private const val PROBE_RESET_GAP_MS = 400L
+    /**
+     * 清 0 与写位图之间的间隔。
+     *
+     * **必须大于探针的轮询周期**（`ZoomRingSensorListener.PROBE_INTERVAL_MS` = 2000ms）。
+     * 探针是 2 秒一拍地去读 `hzr_probe`：0 和位图如果落在同一个窗口里，那一拍只看得到
+     * 位图，"清 0"等于没发生过，于是边沿判断又把同一个数当成"没变"。
+     * 早先写 400ms 就是这个毛病 —— 反馈包和自测按钮都静默失效，见下面两处注释。
+     */
+    private const val PROBE_RESET_GAP_MS = 2_400L
 
-    /** 写完位图后等多久：探针节拍是 2 秒一次，留够两拍 */
-    private const val PROBE_WAIT_MS = 4_600L
+    /**
+     * 写完位图后等多久：探针 2 秒一拍，写进去之后最多要等满一拍才轮到它跑，
+     * 而位图里最重的 8192（入口体检）自己还要读一圈系统设置。
+     * 3 拍 ≈ 6 秒是稳妥值；再长用户会觉得按钮卡住了。
+     */
+    private const val PROBE_WAIT_MS = 6_000L
 
     /** 探针位图：128=映射回显，512=配置通道回显，8192=入口体检。三条都不改变设备行为 */
     internal const val PROBE_BITS = 128L or 512L or 8192L
@@ -127,8 +138,10 @@ object DiagReport {
     /**
      * 触发一次 system_server 里的探针，把 `hzr_entry` / `hzr_cfg` / `hzr_map` 刷新出来。
      *
-     * 必须**先清 0 再写**：DebugProbe.tick 只在"读到非 0 且与上次不同"时才干活，
-     * 连着写两次同一个位图，第二次什么都不会发生。
+     * 必须**先清 0、隔一拍、再写位图**：DebugProbe.tick 只在"读到非 0 且与上次不同"时才干活。
+     * 中间那一拍（[PROBE_RESET_GAP_MS]）不是保险，是必要条件 —— 探针是 2 秒一次的轮询，
+     * 如果 0 和位图都落在同一个 2 秒窗口里，tick 根本看不到那个 0，于是一模一样的位图
+     * 又被判成"没变"。这里踩过一次，见 [requestProbe]。
      *
      * @return 位图写进去了才 true（写不进去时反馈包里那三行仍然会是空的，得让调用方知道）
      */
@@ -140,9 +153,18 @@ object DiagReport {
         return ok
     }
 
-    /** 诊断页「运行注入自测」：位图 32 = 让 system_server 自己滚一次列表 */
-    fun requestProbe(context: Context, bits: Long): Boolean =
-        writeGlobal(context, "hzr_probe", "0") && writeGlobal(context, "hzr_probe", bits.toString())
+    /**
+     * 诊断页「运行注入自测」：位图 32 = 让 system_server 自己滚一次列表。
+     *
+     * 这里同样要隔一拍。曾经写成 `写 0 && 立刻写 32`，第一次按能通（32 与上一次的 8832
+     * 本来就不同），**第二次按就再也没反应** —— 0 和 32 挤进同一个轮询窗口，
+     * 探针看到的仍是"32，与上次相同"。用户会以为按钮坏了，其实是没触发。
+     */
+    fun requestProbe(context: Context, bits: Long): Boolean {
+        writeGlobal(context, "hzr_probe", "0")
+        Thread.sleep(PROBE_RESET_GAP_MS)
+        return writeGlobal(context, "hzr_probe", bits.toString())
+    }
 
     /**
      * 读日志。先试 root（能拿到 system_server 的行），失败再退回本进程。
