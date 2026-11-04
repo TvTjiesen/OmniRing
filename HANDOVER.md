@@ -303,6 +303,13 @@
   `git -c credential.helper= -c credential.helper='!f() { echo username=x-access-token; echo "password=$(gh auth token)"; }; f' push https://github.com:443/TvTjiesen/OmniRing.git main`
   —— token 不进命令行、不落盘。**每次推送前照例跑一遍 PIN 自查**（工作树 + `git rev-list --objects --all` 全 blob）。
   但"发版"（建 release / 改版本号）仍要业主当次点头。
+- **2026-11-04 补：`github.com:443` 的 git 协议会被墙掉**（`Failed to connect … after 21000 ms` / `Recv failure`），
+  但 `api.github.com` 一直通（0.3 秒 200）。`gh release create` 走的是 API，所以**发版不受影响**；
+  推源码改用 **Git API 手工造提交**：`POST /git/blobs`（base64）→ `POST /git/trees`（`base_tree` = 远端 tree）→
+  `POST /git/commits`（`parents` = 远端 head）→ `PATCH /git/refs/heads/main`。
+  注意 API 造出来的 commit sha 与本地 `git commit` 的不同（author/committer/时间戳序列化差异），
+  落地后要**用同样的 tree+parent+message 在本地 `git hash-object -t commit -w --stdin` 复现同一个对象**，
+  再 `git reset --hard <sha>` 让本地与远程字节一致（时间戳按远端 `date` 换算成 epoch，时区写 `+0800`）。
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
