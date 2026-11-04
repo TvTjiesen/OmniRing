@@ -27,8 +27,16 @@ $ErrorActionPreference = 'Stop'
 function Norm([string]$s) { if ($s) { ($s -replace ':', '' -replace '\s', '').ToUpper() } else { '' } }
 
 function Read-CertInfo($apk) {
-    # apksigner 是个 .bat，必须走 cmd /c；输出里 "certificate DN" 和 "SHA-256 digest" 两行是判据
-    $out = (cmd /c "`"$Apksigner`" verify --print-certs `"$apk`"") 2>&1 | Out-String
+    # apksigner 是个 .bat，必须走 cmd /c；输出里 "certificate DN" 和 "SHA-256 digest" 两行是判据。
+    # 注意：`(cmd /c "..." ) 2>&1 | Out-String` 在本机 PowerShell 5.1 里拿到的永远是空串（LEN=0），
+    # 于是报告会写着"指纹不一致"而其实没读到东西 —— 必须用 Start-Process 重定向到临时文件再读。
+    $tmp = Join-Path $env:TEMP ("hzr_cert_" + [guid]::NewGuid().ToString('N') + ".txt")
+    $apArg = '/c ""{0}" verify --print-certs "{1}" > "{2}" 2>&1"' -f $Apksigner, $apk, $tmp
+    $p = Start-Process -FilePath 'cmd.exe' -ArgumentList $apArg -Wait -PassThru -NoNewWindow
+    $out = if (Test-Path $tmp) { Get-Content -Raw $tmp -ErrorAction SilentlyContinue } else { '' }
+    if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+    if (-not $out) { $out = '' }
+    if ($p.ExitCode -ne 0 -and -not $out) { $out = '' }
     $dn = [regex]::Match($out, 'certificate DN:\s*(.+)').Groups[1].Value.Trim()
     $sha = [regex]::Match($out, 'certificate SHA-256 digest:\s*([0-9a-fA-F]+)').Groups[1].Value
     return @{ dn = $dn; sha256 = $sha }
@@ -92,7 +100,7 @@ $pw = $null
 Push-Location $Repo
 try {
     Write-Host '构建 1/2：双声明那份 …' -ForegroundColor Cyan
-    (cmd /c ".\gradlew.bat --offline -q assembleRelease") 2>&1 | Select-Object -Last 3
+    & cmd.exe /c ".\gradlew.bat --offline -q assembleRelease" 2>&1 | Select-Object -Last 3
     $dual = Join-Path $Repo 'app\build\outputs\apk\release\app-release.apk'
     if (-not (Test-Path $dual)) { throw '没产出 app-release.apk' }
 
@@ -105,7 +113,7 @@ try {
     $outLegacy = ''
     if (-not $SkipLegacy) {
         Write-Host '构建 2/2：只留传统入口那份（发酷友 / 上架）…' -ForegroundColor Cyan
-        (cmd /c ".\gradlew.bat --offline -q -Phzr.legacyOnly=true assembleRelease") 2>&1 | Select-Object -Last 3
+        & cmd.exe /c ".\gradlew.bat --offline -q -Phzr.legacyOnly=true assembleRelease" 2>&1 | Select-Object -Last 3
         $outLegacy = Join-Path $Repo ("build\OmniRing-$vname-signed-legacy.apk")
         Copy-Item $dual $outLegacy -Force
         Write-Host ("   → " + $outLegacy) -ForegroundColor Green
@@ -131,6 +139,18 @@ $report = Join-Path $Repo 'build\release_sign_report.txt'
 Write-Host ''
 Write-Host ($lines -join "`r`n")
 Write-Host ''
+
+# 把成品拷到桌面按版本号命名的目录 —— 他找不到 build\ 里的文件，所以这一步必须在脚本里做，
+# 别指望那个 .bat 再解析一遍 versionName（bat 的 for /f 转义太容易写坏，已经坏过一次）。
+$deskDir = Join-Path ([Environment]::GetFolderPath('Desktop')) ("OmniRing " + $vname)
+if (-not (Test-Path $deskDir)) { New-Item -ItemType Directory -Path $deskDir | Out-Null }
+foreach ($f in @(Get-ChildItem (Join-Path $Repo 'build') -Filter 'OmniRing-*-signed*.apk' -ErrorAction SilentlyContinue)) {
+    Copy-Item $f.FullName (Join-Path $deskDir $f.Name) -Force
+}
+if (Test-Path $report) { Copy-Item $report (Join-Path $deskDir 'release_sign_report.txt') -Force }
+Write-Host ("── 已拷到桌面：" + $deskDir) -ForegroundColor Green
+Write-Host ''
+Start-Process explorer.exe -ArgumentList $deskDir
 if ($allOk) {
     Write-Host '── 两份包都用正式密钥签好了，指纹对得上。' -ForegroundColor Green
 } else {
