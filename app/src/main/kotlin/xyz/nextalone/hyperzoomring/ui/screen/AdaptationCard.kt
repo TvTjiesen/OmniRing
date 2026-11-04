@@ -108,6 +108,19 @@ fun AdaptationCard(modifier: Modifier = Modifier) {
             // 机型 / 系统：纯事实，现读
             InfoRow(stringResource(R.string.compat_check_device), DeviceInfo.modelLine)
             InfoRow(stringResource(R.string.compat_check_os), DeviceInfo.osLine)
+
+            // 系统低于实测范围时，明说"不在支持范围、源码公开自己改"。
+            // 不加这一句的话，用户只看到一个灰色标题「未支持」，下一句就是"那到底能不能用？"
+            // —— 业主 2026-11-04 定案不保 OS3，这里就不能留任何"应该能跑"的暗示。
+            if (rep?.level == Compatibility.Level.PARTIAL) {
+                Text(
+                    text = stringResource(R.string.compat_partial_hint),
+                    fontSize = 12.sp,
+                    color = gray,
+                    modifier = Modifier.padding(start = 22.dp),
+                )
+            }
+
             InfoRow(
                 stringResource(R.string.compat_check_path),
                 // 通道由心跳决定，不再写死：HyperOS 3 上输入侧确实也收得到事件，

@@ -235,7 +235,8 @@
     <string name="compat_title">Device &amp; compatibility</string>
     <string name="compat_level_full">Fully supported</string>
     <string name="compat_level_setup">Works · one step left</string>
-    <string name="compat_level_partial">Partially supported (untested)</string>
+    <string name="compat_level_partial">Not supported (no guarantees)</string>
+    <string name="compat_partial_hint">This system is below the tested range and is not supported. The source is public — adapt it yourself if you need it.</string>
     <string name="compat_level_unsupported">Not supported</string>
     <string name="compat_level_checking">Checking…</string>
     <string name="compat_score">%1$d/%2$d checks passed</string>

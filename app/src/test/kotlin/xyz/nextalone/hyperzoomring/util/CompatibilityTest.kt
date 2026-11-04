@@ -65,17 +65,21 @@ class CompatibilityTest {
     }
 
     @Test
-    fun `系统低于实测范围 = 部分适配`() {
+    fun `系统低于实测范围 = 未支持（不是还差一步）`() {
+        // 这一档必须和 SETUP 分开：SETUP 是"你去重启一下就好"，PARTIAL 是"这台系统我们不保"。
+        // 混在一起会让 OS3 用户以为修一修就能用。
         val r = grade(sdk = 34)
         assertEquals(Compatibility.Level.PARTIAL, r.level)
     }
 
     @Test
     fun `Android 16（HyperOS 3）没实测过 不许报成通过`() {
-        // 这一条是给 HyperOS 3 那轮适配补的：上一版把 TESTED_MIN_SDK 写成 36，等于对外宣称
-        // "Android 16 我们跑过"，而手上唯一一台实测机是 OS4 / Android 17（SDK 37）。
-        // 虚报的代价很具体 —— 酷安上会有人装了之后回来说"你写着支持结果不行"。
-        // 等 OS3 的机器真验过，再把这条下限抬回 36，并且那时要换成正面证据。
+        // 上一版把 TESTED_MIN_SDK 写成 36，等于对外宣称"Android 16 我们跑过"，
+        // 而手上唯一一台实测机是 OS4 / Android 17（SDK 37）。虚报的代价很具体 ——
+        // 酷安上会有人装了之后回来说"你写着支持结果不行"。
+        //
+        // 2026-11-04 业主定案：**不再适配 OS3**，源码公开、要用的自己改。
+        // 所以这条断言从"等实测后抬回 36"变成终态：只要没实测证据，就一直是 PARTIAL。
         val r = grade(sdk = 36)
         assertEquals(Compatibility.Level.PARTIAL, r.level)
         assertEquals(Compatibility.State.WARN, r.items.first { it.check == Compatibility.Check.OS }.state)

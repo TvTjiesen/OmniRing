@@ -768,3 +768,39 @@ USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 
 
 ### 没验的
 - `scope.list` 自动勾选仍未验（要卸载重装；`adb install -r` 保留数据与已勾选作用域，看不出自动补勾效果）。
+
+
+## 第二十三批（2026-11-04）· 明确放弃适配 HyperOS 3：只改口径，不拆防护
+
+### 业主决策
+- m03380 原话：「我想直接放弃适配os3，想在os3正常使用的就自己适配，反正我公开所有源代码」；
+  m03389：「动手吧，不保证一定可用」。
+
+### 为什么只改"说法"、不改判定逻辑
+- GPL-3.0 已经把 fork 的权利给出去了，我们放弃的只是**跟进承诺**，不是别人的权利。
+- 但**防护不能跟着放弃**：`RingSourceArbiter` 的 700ms 租约、双入口互斥、转场 600ms 闸门、
+  时钟倒挂防护，保护的是"两条入口并存的系统"这一事实，不是某个具体系统版本。
+  OS3 上输入侧与传感器侧会各收到一次转动，删掉只会把"手感不对"升级成"滚两倍"。
+  留着零成本，所以一行没删。
+- `Compatibility.TESTED_MIN_SDK` 仍是 **37**（这一版之前就已经是 37，改的是它对外的措辞）；
+  适配卡不再用"部分适配（未实测）/大概率能用"这种暗示"改一改就能用"的说法。
+
+### 修改的文件
+| 文件 | 改了什么 |
+| --- | --- |
+| `app/src/main/kotlin/xyz/nextalone/hyperzoomring/util/Compatibility.kt` | 类头 `Level.PARTIAL` 注释改为「**不在支持范围**，能不能用不保证」；`TESTED_MIN_SDK` 注释补一句"这就是终态，不再等 OS3 实测后抬回 36"。**数值未改。** |
+| `app/src/main/res/values{,-en,-b+zh+Hant,-ru}/strings.xml` | `compat_level_partial` 四语改为「未支持（不保证可用）」/ `Not supported (no guarantees)` / `未支援（不保證可用）` / `Не поддерживается (без гарантий)`；各新增 1 键 `compat_partial_hint`（说明源码公开、需要的自己改）。四语各 **245** 键。 |
+| `app/src/main/kotlin/xyz/nextalone/hyperzoomring/ui/screen/AdaptationCard.kt` | PARTIAL 时在「系统」一行下面多画一行灰色小字 `compat_partial_hint`。理由：只给一个灰色"未支持"标题，用户下一句一定是"那到底能不能用"。 |
+| `app/src/test/kotlin/xyz/nextalone/hyperzoomring/util/CompatibilityTest.kt` | 用例 `系统低于实测范围 = 部分适配` 改名为 `系统低于实测范围 = 未支持（不是还差一步）`；`Android 16（HyperOS 3）没实测过 不许报成通过` 的注释改成终态口径。**断言值未改。** |
+| `README.md` | 顶部接手提示里加"支持范围"两行；「已知限制」里那条"只在 nezha + OS4 上实测过"扩写成完整口径（含"防护会保留、删了会怎样"和指向 `docs/SELF-ADAPT.md`）。 |
+| `docs/SELF-ADAPT.md` | **新增**。给想自己在 OS3 上跑的人：九条已证死的不用再证、五条只能真机回答的未知（A 输入侧收不收得到 MotionEvent / B `mt350x` 是否同名 / C `AXIS_SCROLL` 增量还是累计 / D Android 16 钩子方法名 / E 相机包名白名单）各带判据与兜底、开工前必读（版本串两种写法、别删防护）、构建机条件（JDK 21 / SDK 37 / `localmaven` 不在库里）、发布自己构建的三件必做（改包名 / 自签 / GPL 义务）。 |
+
+### 验证
+- `./gradlew --offline -q :app:testDebugUnitTest --rerun` → **39 个 XML / 248 条断言 / 0 失败 0 错误 0 跳过**（与上一批同数：本批只改文案与注释，没有新增断言）。
+- `python tools/i18n_check.py` → `values=245 values-b+zh+Hant=245 values-en=245 values-ru=245 OK`。
+- 没有改任何 hook / 仲裁 / 注入逻辑，`BUILD_TAG` 仍是 `cfg49`（**本批不产生新的构建戳**）。
+
+### 没做的
+- 商店页 `build/store/README.md` 的「支持的系统」段已同步改写，但**尚未 PUT 到 `Xposed-Modules-Repo/io.github.tvtjiesen.omniring`**
+  （`build/` 在 `.gitignore`，那是本地草稿；发布商店页要走 contents API，等业主点头一起做）。
+- `docs/HYPEROS3-SELFCHECK.md` 与 `docs/HYPEROS3-TESTER.md` 保留原文，只在 `HANDOVER.md` §6 标成"历史材料、不再是待办"。

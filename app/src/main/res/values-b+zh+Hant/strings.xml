@@ -236,7 +236,8 @@
     <string name="compat_title">本機與適配</string>
     <string name="compat_level_full">完整適配</string>
     <string name="compat_level_setup">可用 · 還差一步</string>
-    <string name="compat_level_partial">部分適配（未實測）</string>
+    <string name="compat_level_partial">未支援（不保證可用）</string>
+    <string name="compat_partial_hint">系統低於實測範圍，不在支援範圍內。原始碼公開，需要的可自行修改使用。</string>
     <string name="compat_level_unsupported">未適配</string>
     <string name="compat_level_checking">偵測中…</string>
     <string name="compat_score">%1$d/%2$d 項通過</string>

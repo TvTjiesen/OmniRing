@@ -235,7 +235,8 @@
     <string name="compat_title">Устройство и совместимость</string>
     <string name="compat_level_full">Полная поддержка</string>
     <string name="compat_level_setup">Работает · нужен ещё шаг</string>
-    <string name="compat_level_partial">Частично (не проверялось)</string>
+    <string name="compat_level_partial">Не поддерживается (без гарантий)</string>
+    <string name="compat_partial_hint">Система ниже проверенного диапазона и не поддерживается. Исходный код открыт — адаптируйте сами, если нужно.</string>
     <string name="compat_level_unsupported">Не поддерживается</string>
     <string name="compat_level_checking">Проверка…</string>
     <string name="compat_score">Пройдено %1$d из %2$d</string>

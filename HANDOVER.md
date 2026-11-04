@@ -14,7 +14,7 @@
 
 1. `source /e/dev/env.sh`（Android SDK、adb、`python` 都在这套路径里；不 source 就会 `adb: command not found`）。
 2. 读 §1、§2 —— 违反这两节的代价是**毁掉业主的日常手机**或者**交出一个看着成功其实没生效的包**。
-3. 跑一遍 `./gradlew :app:testDebugUnitTest`（基线 **219 条断言 / 0 失败**）。任何改动之后这个数字只许涨不许跌。
+3. 跑一遍 `./gradlew :app:testDebugUnitTest`（基线 **248 条断言 / 0 失败**，39 个测试类）。任何改动之后这个数字只许涨不许跌。
 4. 需要装机就先跑 `bash tools/deploy_verify.sh`（**不要手敲命令**，理由见 §3）。
 5. 有拿不准的产品/观感问题，去问业主本人，别自己替他定（§9）。
 
@@ -87,13 +87,26 @@
 
 **一处待业主判**：他机上 `hzr_scrub_y` 还是 `0.27`，而代码默认与 README 都是 `0.45` —— 没烘也没删，因为没有证据说明 0.27 是被确认过的值。**别自作主张二选一**，问他或按 §2 取证。
 
-## 6. HyperOS 3 适配的真实进度（别提前替它吹）
+## 6. HyperOS 3 / OS 老版本的定位（2026-11-04 业主定案：**不再适配**）
 
-- 代码侧完成：双入口租约仲裁、相机/转场两道闸门、心跳第 8 段远程判据、首页「技术路径」带计数（`input+sensor 挡N/执M`）。
-- 自检验证：`docs/HYPEROS3-SELFCHECK.md`（分"能证死的"和"没机器证不死的"两类，别混着讲）。
-- 老框架发布包在虚拟机（A15 + **LSPosed v1.11.0**）实测过加载：`entry=legacy legacyHooked=filterInputEvent,injectInputEvent runtime=started=true build=cfg42`。
-- **仍然等业主找酷友给回执**。在拿到正向证据前，`util/Compatibility.kt` 的 `TESTED_MIN_SDK` 保持 **37**（写 36 等于宣称跑过 Android 16，那是虚的），OS3 的适配卡就该显示 WARN。
-- 回执不要 adb：一张首页截图就够判双倍执行（`docs/HYPEROS3-TESTER.md` 第一节是可复制转发的话术，第四节才是我们自己看的取证）。
+- **支持范围只有一条**：Xiaomi 17 Ultra（`nezha` / 25128PNA1C）+ HyperOS 4 / Android 17，实测过。
+  HyperOS 3（Android 16）**及更低一律不在支持范围、不保证可用**，也不再收这类系统的回执。
+  业主原话（m03380）：「我想直接放弃适配os3，想在os3正常使用的就自己适配，反正我公开所有源代码」；
+  m03389「动手吧，不保证一定可用」= 批准按"不保证可用"的口径改。
+- `util/Compatibility.kt` 的 `TESTED_MIN_SDK` **保持 37，且这是终态**——不再"等 OS3 实测后抬回 36"。
+  适配卡对低于它的组合显示 `compat_level_partial` = **「未支持（不保证可用）」**（不是"部分适配/大概率能用"，
+  后者等于替没实测过的组合背书），并在下面多一行 `compat_partial_hint` 说明"源码公开、需要的自己改"。
+- **防护不跟着放弃**：`RingSourceArbiter` 的 700ms 租约、双入口互斥、转场 600ms 闸门、时钟倒挂防护
+  **不是 OS3 适配代码**，而是"两条入口并存的系统"的通用防护。OS3 上输入侧与传感器侧会各收到一次转动，
+  删掉只会让"手感不对"升级成"滚两倍"。留着零成本，别删（详见 §4 架构不变量）。
+- 给想自己改的人：**`docs/SELF-ADAPT.md`**（2026-11-04 新增）——九条已证死的不用再证、五条只能真机回答的
+  未知（A 输入侧收不收得到 MotionEvent / B `mt350x` 是否同名 / C `AXIS_SCROLL` 增量还是累计 /
+  D Android 16 钩子方法名 / E 相机包名白名单）、每条的判据与兜底、构建机条件、发布自己构建的三件必做（改包名/自签/GPL）。
+- 历史材料保留但**不再作为待办**：`docs/HYPEROS3-SELFCHECK.md`（分"能证死的"和"没机器证不死的"两类）、
+  `docs/HYPEROS3-TESTER.md`（发给酷友的话术）。老框架发布包在虚拟机（A15 + **LSPosed v1.11.0**）
+  实测过加载：`entry=legacy legacyHooked=filterInputEvent,injectInputEvent runtime=started=true build=cfg42`。
+- **商店 README / 项目 README 的口径已同步**：「HyperOS 4 已实测，在支持范围内；HyperOS 3 及更低不在支持范围内、不保证可用」，
+  别再写"等 OS3 回执"。
 
 ## 7. 发布车道（密钥 / 签名 / 商店 / 迁移）
 
@@ -130,9 +143,9 @@
   踩坑记录：业主第一次填到了**源码仓库** `TvTjiesen/OmniRing`（不是商店读的那个组织仓库），两处描述要分开填。
   验收只能在他手机上做（LSPosed 管理器 → 仓库 → 搜 `omniring`）；本机到 `modules.lsposed.org` 被 TencentEdgeOne 回 **403 空体**，
   换 allorigins / r.jina.ai 代理也不通 ⇒ **agent 侧无法直读商店 JSON**。
-- **HyperOS 3 一句话口径**：代码侧 9 条能证死的已证死（`docs/HYPEROS3-SELFCHECK.md` §1），
-  但**没有任何 OS3 真机正向证据**，所以 `TESTED_MIN_SDK` 保持 37、适配卡在 OS3 显示 WARN/部分适配。
-  商店 README 只写「HyperOS 4 已实测」，别替 OS3 吹。
+- **HyperOS 3 / 老系统口径（2026-11-04 起）**：**不再适配、不保证可用**（§6）。代码侧 9 条能证死的已证死
+  （`docs/HYPEROS3-SELFCHECK.md` §1），五条只能真机回答的未知整编进 `docs/SELF-ADAPT.md` 交给想自己改的人。
+  `TESTED_MIN_SDK` 保持 37 且为终态，适配卡显示「未支持（不保证可用）」，商店 README 只写「HyperOS 4 已实测」。
 - 包名迁移代价（对外的硬事实）：`1.39` 及之前是 `xyz.nextalone.hyperzoomring`，两个 ID **互不覆盖**；老用户要先在 LSPosed 关掉旧模块再卸载。App 首页有警示卡，装机脚本会备份/还原 prefs。给测试者的那份已经写了这条。
 
 ## 8. 未完成的活
@@ -309,20 +322,28 @@
   `POST /git/commits`（`parents` = 远端 head）→ `PATCH /git/refs/heads/main`。
   注意 API 造出来的 commit sha 与本地 `git commit` 的不同（author/committer/时间戳序列化差异），
   落地后要**用同样的 tree+parent+message 在本地 `git hash-object -t commit -w --stdin` 复现同一个对象**，
-  再 `git reset --hard <sha>` 让本地与远程字节一致（时间戳按远端 `date` 换算成 epoch，时区写 `+0800`）。
+  再 `git reset --hard <sha>` 让本地与远程字节一致（时间戳按远端 `date` 换算成 epoch，**时区必须写 `+0000`**；
+  写 `+0800` 算出来的 sha 对不上，我第一次就是这么错的）。author/committer 用 GitHub 账号
+  `TvTjiesen <jies96188@gmail.com>`。落地后 `git update-ref refs/remotes/origin/main <sha>`。
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-04 11:40 左右）
+## 12. 此刻状态快照（2026-11-04 15:00 左右）
 
-- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg49`；单测 **39 XML / 248 断言 0 失败**，四语 **244/244**。
-- 设备 `c05bb07c` 在线且已解锁，装的是 **debug 包 1.40.1**（md5 `986e30fb8eb59bdc66032df1fd1a249f`，装机端已回读核对一致）。
-- `cfg49` 真机端到端**已验完**（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
+- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg49`；单测 **39 XML / 248 断言 0 失败**，
+  四语 **245/245**（新增 `compat_partial_hint`）。
+- **1.40.1 已发布**：GitHub release `52-1.40.1`（Latest），附件 `OmniRing-1.40.1-signed-legacy.apk` 4,744,375 B，
+  正式签名 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b`（详见 §7）。本地 HEAD = 远程 main = `3ab37a2`。
+- **OS3 口径已改成"不再适配"**（§6）：`compat_level_partial` → 「未支持（不保证可用）」+ 新增
+  `compat_partial_hint` 提示行；`Compatibility.kt` 两处注释改成终态口径；`CompatibilityTest` 一个用例改名、
+  一个注释改写（断言值未变）；新增 **`docs/SELF-ADAPT.md`**（给想自己改的人）；README 顶部与「已知限制」
+  各一段改成支持范围口径；`build/store/README.md` 的「支持的系统」段同步（**改完待 PUT 到商店仓库**）。
+- 设备 `c05bb07c` 上装的是 **debug 包 1.40.1**（md5 `986e30fb8eb59bdc66032df1fd1a249f`）；
+  `cfg49` 真机端到端已验完（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
   `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
-- **发布 1.40.1 卡在一步**：`assembleRelease` 出来的 `app-release.apk`（4,744,848 B / md5 `acbfa06a81e6077f6b1c021e8fc4ad43`）
-  仍是**回落调试签名**（`CN=Android Debug` / `8785e490…`），要业主双击 `tools/sign_key.bat` 才会出
-  `build/OmniRing-1.40.1-signed.apk` 与 `-signed-legacy.apk`；签好后建 release tag **`52-1.40.1`**、附件用 legacy 那份。
-- 老 `51-1.40.0` 那次提交记录见 §7（历史），**商店是否已收录仍只能业主手机上搜 omniring 确认**。
+- **未验**：`scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
+  商店是否已收录（只能业主手机上搜 omniring）。
+- **待业主定**：`hzr_scrub_y`（他机 0.27 vs 代码默认/README 0.45，我建议两边都不动）。
 
 ## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）
 
