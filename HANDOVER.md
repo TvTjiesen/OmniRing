@@ -4,7 +4,7 @@
 细节在 `README.md`、`MODIFICATIONS.md`、`docs/*.md` 里，下面只标去哪查、不重复抄。
 
 工程：`E:\dev\hzr`（GPL-3.0，fork 自 NextAlone/HyperZoomRing）· 当前 `HEAD` 是
-`1.40.0-beta → 1.40.0 → 1.40.1`（versionCode **52** / 构建戳 `cfg49`，见 §8D）· 装机身份
+`1.40.0-beta → 1.40.0 → 1.40.1`（versionCode **52** / 构建戳 `cfg50`，见 §8D）· 装机身份
 `io.github.tvtjiesen.omniring`（**2026-10-31 从上游包名改过来的**，原因见
 `docs/LSPOSED-STORE.md`）。
 
@@ -231,6 +231,27 @@
 `build=cfg49`；真机连做两轮「清 0 → 等 3s → 写同一个 8832」，`hzr_cfg` 的 `ageMs`
 从 `16653` 变到 `26666`（两轮都真跑了），修复前它恒为 `-1`。
 
+### 8D-补2：`cfg50` 修掉了适配卡自相矛盾（2026-11-04）
+
+1.40.1 装到真机上，设置页同时显示「模块加载 = **未被加载**」和「环数据 = **开机后还没收到**」，
+而 `hzr_entry` 明明是 `runtime=started=true … recv=ok`、`hzr_heartbeat` 也有值。
+
+根因在 `util/Compatibility.kt`：`StatusJudge.Verdict.NO_SAMPLES` 掉进了
+`loadedState` 的 `else -> State.FAIL`。但 `NO_SAMPLES` 的前提就是**心跳已经读到**
+（`judge()` 里 `heartbeat == null → NOT_LOADED` 在前，`samples <= 0 → NO_SAMPLES` 在后），
+能判出 NO_SAMPLES 就等于"模块在跑、只是没人转环"。判成 FAIL 之后 UI 说「未被加载」，
+用户就会去重装模块／反复重启作用域——白折腾。
+
+- `NO_SAMPLES` 改判 `PASS`，`NOT_LOADED` / `ALL_FAILED` 明确列 FAIL（不再 `else` 兜底）；
+  "没数据"继续由 RING 那一条说，整体仍是 `Level.SETUP`。
+- 顺手拆掉第二个歧义：`DISABLED`（总开关关着）原来和 `RELOAD_PENDING` 共用
+  「待重启作用域」，会让人反复重启而真问题在开关上 → 新增 `compat_loaded_disabled`
+  （中 `已关闭`）；`AdaptationCard.loadedTextOf(state, verdict)` 先看判定名再看颜色。
+- `BUILD_TAG` = `cfg50`；单测 39 XML / **249** 断言；四语 **246** 键；
+  `app-debug.apk` md5 `f63c3108f6c7d061fcd4673d86ce1a96` / 48,756,124 B，装机端回读一致。
+- **未验**：UI 那一眼。dump 时手机锁屏（`mWakefulness=Dozing`、`isKeyguardShowing=true`），
+  截到的是通知栏。下次解锁后确认适配卡显示「已加载并在跑」+「还没收到环数据」。
+
 ## 9. 和业主协作的方式（他明确表达过的偏好）
 
 - 结论先说、直白；**别乱改他的东西**，改了要说改了什么、为什么。
@@ -328,17 +349,20 @@
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-04 15:00 左右）
+## 12. 此刻状态快照（2026-11-04 15:35 左右）
 
-- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg49`；单测 **39 XML / 248 断言 0 失败**，
-  四语 **245/245**（新增 `compat_partial_hint`）。
+- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg50`；单测 **39 XML / 249 断言 0 失败**，
+  四语 **246/246**（新增 `compat_partial_hint` 与 `compat_loaded_disabled`）。
+- **本批没提版本号**：`cfg50` 只修适配卡的判定与文案，`versionCode` 仍是 52，所以商店里最新的
+  还是 `52-1.40.1` 那份；要让这些改动进商店得 bump `53 / 1.40.2` 重新出包（待业主定）。
 - **1.40.1 已发布**：GitHub release `52-1.40.1`（Latest），附件 `OmniRing-1.40.1-signed-legacy.apk` 4,744,375 B，
   正式签名 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b`（详见 §7）。本地 HEAD = 远程 main = `3ab37a2`。
 - **OS3 口径已改成"不再适配"**（§6）：`compat_level_partial` → 「未支持（不保证可用）」+ 新增
   `compat_partial_hint` 提示行；`Compatibility.kt` 两处注释改成终态口径；`CompatibilityTest` 一个用例改名、
   一个注释改写（断言值未变）；新增 **`docs/SELF-ADAPT.md`**（给想自己改的人）；README 顶部与「已知限制」
   各一段改成支持范围口径；`build/store/README.md` 的「支持的系统」段同步（**改完待 PUT 到商店仓库**）。
-- 设备 `c05bb07c` 上装的是 **debug 包 1.40.1**（md5 `986e30fb8eb59bdc66032df1fd1a249f`）；
+- 设备 `c05bb07c` 上装的是 **debug 包 1.40.1 + `cfg50`**（md5 `f63c3108f6c7d061fcd4673d86ce1a96`，
+  装在 `/data/app/~~FXv3WCL7qp0qpFDadqtaYg==/…/base.apk`）；
   `cfg49` 真机端到端已验完（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
   `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
 - **未验**：`scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；

@@ -79,11 +79,16 @@ object Compatibility {
         // 这不是"通不通"，是"走的哪条路"，所以永远标 INFO。
         items += Item(Check.PATH, State.INFO, activePath)
 
+        // NO_SAMPLES 必须算"已加载"：能读到 NO_SAMPLES 就说明心跳在，模块已经在
+        // system_server 里跑起来了，只是还没人转过环。老写法把它并进 else 判 FAIL，
+        // 于是刚装完/刚重启完的机器上这一行显示「未被加载」，而同一张卡下面一行又写着
+        // 「开机后还没收到环数据」—— 两句话互相打脸，用户会去重装模块。
+        // "没数据进来"这件事由 RING 那一条单独说，两条各说各的。
         val loadedState = when (verdict) {
             null -> State.WARN
-            StatusJudge.Verdict.OK -> State.PASS
+            StatusJudge.Verdict.OK, StatusJudge.Verdict.NO_SAMPLES -> State.PASS
             StatusJudge.Verdict.RELOAD_PENDING, StatusJudge.Verdict.DISABLED -> State.WARN
-            else -> State.FAIL
+            StatusJudge.Verdict.NOT_LOADED, StatusJudge.Verdict.ALL_FAILED -> State.FAIL
         }
         items += Item(Check.LOADED, loadedState, verdict?.name ?: "UNKNOWN")
 

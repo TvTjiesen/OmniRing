@@ -106,6 +106,22 @@ class CompatibilityTest {
     }
 
     @Test
+    fun `有心跳没样本 模块加载必须是已加载，不许跟环数据那行打脸`() {
+        // 能判出 NO_SAMPLES 就说明心跳在、模块已经在 system_server 里跑着，
+        // 只是还没人转过环。老写法把它并进 else 判 FAIL，同一张卡上就同时出现
+        // 「模块加载 = 未被加载」和「环数据 = 开机后还没收到」—— 前一句是假的，
+        // 用户会因此去重装模块、重启作用域，白折腾一轮。
+        val r = grade(verdict = StatusJudge.Verdict.NO_SAMPLES, samples = 0L)
+        assertEquals(
+            Compatibility.State.PASS,
+            r.items.first { it.check == Compatibility.Check.LOADED }.state,
+        )
+        assertEquals(Compatibility.State.WARN, r.items.first { it.check == Compatibility.Check.RING }.state)
+        // 但整体仍然是"差一步"：环没数据这件事不能因为加载成功就被吞掉
+        assertEquals(Compatibility.Level.SETUP, r.level)
+    }
+
+    @Test
     fun `心跳读不到时不许崩，按未知处理`() {
         val r = grade(verdict = null)
         assertEquals(Compatibility.Level.SETUP, r.level)

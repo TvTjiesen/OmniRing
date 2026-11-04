@@ -249,6 +249,7 @@
     <string name="compat_path_both">Both channels active (input events are arriving too; duplicate execution is gated)</string>
     <string name="compat_loaded_ok">Loaded and running</string>
     <string name="compat_loaded_pending">Scope restart needed</string>
+    <string name="compat_loaded_disabled">Disabled</string>
     <string name="compat_loaded_no">Not loaded</string>
     <string name="compat_ring_seen">%1$d valid samples so far</string>
     <string name="compat_ring_none">No ring data since boot</string>

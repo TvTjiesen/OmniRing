@@ -804,3 +804,57 @@ USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 
 - 商店页 `build/store/README.md` 的「支持的系统」段已同步改写，但**尚未 PUT 到 `Xposed-Modules-Repo/io.github.tvtjiesen.omniring`**
   （`build/` 在 `.gitignore`，那是本地草稿；发布商店页要走 contents API，等业主点头一起做）。
 - `docs/HYPEROS3-SELFCHECK.md` 与 `docs/HYPEROS3-TESTER.md` 保留原文，只在 `HANDOVER.md` §6 标成"历史材料、不再是待办"。
+
+## 第二十四批（2026-11-04）· 适配卡自相矛盾：「模块加载 = 未被加载」和「环数据 = 还没收到」同时出现（`cfg50`）
+
+### 症状（真机 1.40.1 上复现）
+设置页「本机与适配」卡同时显示两行，彼此打脸：
+- `模块加载 = 未被加载`
+- `环数据 = 开机后还没收到环数据`
+
+而同一时刻 `settings get global hzr_entry` 是
+`entry=modern102 … runtime=started=true ctx=ok cfg=ok recv=ok build=cfg49`，
+`settings get global hzr_heartbeat` 有值（`base.apk|48755656|1793775151103;0;0;;;0;0;0/0`），
+`hzr_loaded_apk` 与它逐字节相同。也就是说**模块明明在跑，只是还没人转过环**。
+
+### 根因
+`Compatibility.grade()` 把 `StatusJudge.Verdict.NO_SAMPLES` 并进了 `else -> State.FAIL`：
+
+```kotlin
+val loadedState = when (verdict) {
+    null -> State.WARN
+    StatusJudge.Verdict.OK -> State.PASS
+    StatusJudge.Verdict.RELOAD_PENDING, StatusJudge.Verdict.DISABLED -> State.WARN
+    else -> State.FAIL          // ← NO_SAMPLES 掉进这里，被判成"未被加载"
+}
+```
+
+但 `NO_SAMPLES` 的前提恰恰是**心跳已经读到了**（`StatusJudge.judge()` 里
+`if (heartbeat == null) return NOT_LOADED` 在前，`if (heartbeat.samples <= 0L) return NO_SAMPLES`
+在后），所以能判出 NO_SAMPLES 就等于"模块已加载、只是没数据"。
+被判成 FAIL 之后，适配卡显示「未被加载」，而 RING 那一条同时显示「还没收到」——
+用户看到这两句会去重装模块、重启作用域，白折腾一轮（我自己也差点这么干）。
+
+### 改法
+1. `app/src/main/kotlin/xyz/nextalone/hyperzoomring/util/Compatibility.kt`：
+   `NO_SAMPLES` 改判 `State.PASS`（并列出 `NOT_LOADED` / `ALL_FAILED` 保持 FAIL，不再用 `else` 兜底）。
+   "没数据进来"继续由 RING 那一条单独说，两条各说各的，整体仍然是 `Level.SETUP`。
+2. 顺手修掉同一处的第二个歧义：`DISABLED`（模块总开关关着）原来和 `RELOAD_PENDING` 共用一句
+   「待重启作用域」，会让人反复重启而问题在开关上。新增字符串 `compat_loaded_disabled`
+   （中 `已关闭` / en `Disabled` / zh-Hant `已關閉` / ru `Отключено`），
+   `AdaptationCard.loadedTextOf(state, verdict)` 先看判定名再看状态色。
+3. `DebugProbe.BUILD_TAG` `cfg49` → **`cfg50`**（`app/src/main/kotlin/xyz/nextalone/hyperzoomring/hook/DebugProbe.kt:33`）。
+
+### 验证
+- 新增单测 `有心跳没样本 模块加载必须是已加载，不许跟环数据那行打脸`（`CompatibilityTest.kt`）：
+  断言 `LOADED` 项是 `PASS`、`RING` 项是 `WARN`、整体仍是 `SETUP`。
+- `./gradlew --offline -q :app:testDebugUnitTest --rerun` → **XML=39 tests=249 failures=0 errors=0 skipped=0**（上批 248）。
+- `python tools/i18n_check.py` → **`values=246 values-b+zh+Hant=246 values-en=246 values-ru=246 OK`**（上批 245）。
+- `./gradlew --offline -q assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`
+  **md5 `f63c3108f6c7d061fcd4673d86ce1a96` / 48,756,124 B**。
+- 装机并回读设备端 md5（**`Success` 不算证据**，见第十九批的坏包事故）：
+  `su -c 'md5sum $(pm path io.github.tvtjiesen.omniring | sed s/package://)'` = `f63c3108…` 与本地一致；
+  新路径 `/data/app/~~FXv3WCL7qp0qpFDadqtaYg==/…/base.apk`。
+- `su -c 'kill -9 $(pidof system_server)'` 后 `hzr_entry` 出现 `build=cfg50`，`pidof lspd`=5090 存活。
+- 界面复验**未完**：dump 时设备正好锁屏（`mWakefulness=Dozing`、`isKeyguardShowing=true`、
+  `mCurrentFocus=NotificationShade`），截到的是通知栏，不是适配卡。等解锁后补一张。

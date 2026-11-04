@@ -137,7 +137,7 @@ fun AdaptationCard(modifier: Modifier = Modifier) {
             rep?.items?.firstOrNull { it.check == Compatibility.Check.LOADED }?.let { item ->
                 InfoRow(
                     stringResource(R.string.compat_check_loaded),
-                    stringResource(loadedTextOf(item.state)),
+                    stringResource(loadedTextOf(item.state, item.value)),
                     stateColor(item.state, accent, errorColor, gray),
                 )
             }
@@ -230,9 +230,12 @@ private fun levelTitleOf(level: Compatibility.Level?): Int = when (level) {
     null -> R.string.compat_level_checking
 }
 
-private fun loadedTextOf(state: Compatibility.State?): Int = when (state) {
-    Compatibility.State.PASS -> R.string.compat_loaded_ok
-    Compatibility.State.WARN -> R.string.compat_loaded_pending
+private fun loadedTextOf(state: Compatibility.State?, verdict: String?): Int = when {
+    // 判定名要先看：WARN 有两件完全不同的事 —— 装完没重启（待重启作用域）
+    // 和总开关被关掉（已关闭）。都显示"待重启作用域"会让人反复重启，问题却在开关上。
+    verdict == StatusJudge.Verdict.DISABLED.name -> R.string.compat_loaded_disabled
+    state == Compatibility.State.PASS -> R.string.compat_loaded_ok
+    state == Compatibility.State.WARN -> R.string.compat_loaded_pending
     else -> R.string.compat_loaded_no
 }
 

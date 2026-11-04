@@ -250,6 +250,7 @@
     <string name="compat_path_both">兩條通道並存（輸入側也收到了事件，重複執行已被擋住）</string>
     <string name="compat_loaded_ok">已載入並執行中</string>
     <string name="compat_loaded_pending">待重啟作用域</string>
+    <string name="compat_loaded_disabled">已關閉</string>
     <string name="compat_loaded_no">未被載入</string>
     <string name="compat_ring_seen">累計 %1$d 次有效樣本</string>
     <string name="compat_ring_none">開機後尚未收到環資料</string>

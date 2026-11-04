@@ -249,6 +249,7 @@
     <string name="compat_path_both">Оба канала активны (входной фильтр тоже получает события; дублирование подавлено)</string>
     <string name="compat_loaded_ok">Загружен и работает</string>
     <string name="compat_loaded_pending">Нужна перезапуск области</string>
+    <string name="compat_loaded_disabled">Отключено</string>
     <string name="compat_loaded_no">Не загружен</string>
     <string name="compat_ring_seen">Валидных событий: %1$d</string>
     <string name="compat_ring_none">С момента загрузки данных нет</string>
