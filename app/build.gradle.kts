@@ -36,8 +36,8 @@ android {
         // 1.40.0 起去掉 -beta —— 因为这一版要进 LSPosed 商店，商店页是给普通用户看的，
         // 而且仓库要求 release tag = "<versionCode>-<versionName>"，带 beta 看着就像测试包。
         // 以后再进新一轮实测，重新回到 x.y.z-beta 的写法。
-        versionCode = 52
-        versionName = "1.40.1"
+        versionCode = 53
+        versionName = "1.40.2"
     }
 
     signingConfigs {

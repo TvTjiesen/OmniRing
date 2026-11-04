@@ -858,3 +858,62 @@ val loadedState = when (verdict) {
 - `su -c 'kill -9 $(pidof system_server)'` 后 `hzr_entry` 出现 `build=cfg50`，`pidof lspd`=5090 存活。
 - 界面复验**未完**：dump 时设备正好锁屏（`mWakefulness=Dozing`、`isKeyguardShowing=true`、
   `mCurrentFocus=NotificationShade`），截到的是通知栏，不是适配卡。等解锁后补一张。
+
+## 第二十四批（2026-11-04）· 1.40.2：作用域自动勾选真机验证通过 + 版本号进位
+
+### 这一批改了什么
+
+| 文件 | 改动 |
+|---|---|
+| `app/build.gradle.kts` | `versionCode 52 → 53`、`versionName "1.40.1" → "1.40.2"` |
+| `HANDOVER.md` | §12 快照改写：作用域验证结论、装机数据往返做法、签名入口搬到桌面、1.40.2 待发布状态 |
+
+**代码一行没改**——这一批只是把 `cfg50` 的两处修复（适配卡 `NO_SAMPLES` 误判、`DISABLED` 文案）与实际
+验证结果一起发出去，并补上此前唯一没验过的那条机制。
+
+### 作用域自动勾选：终于验了（这是 `cfg47` 加的 `scope.list` 的验收）
+
+此前一直没验成，原因是**覆盖安装不会被重新判定作用域**：`adb install -r` 保留 `modules_config.db`
+里的原有勾选，`ScopeAdapter` 的"当前勾选为空才补推荐作用域"分支根本走不到。这一轮改成卸载重装：
+
+1. 卸载前用 `su` 把 `/data/data/io.github.tvtjiesen.omniring` 整目录拷到 `/data/local/tmp/omniring_bak/data`，
+   顺手也备份了 `/data/adb/lspd/config/modules_config.db{,-wal,-shm}`。
+2. `adb uninstall` → `adb install -r app-debug.apk`（md5 `a39f72bb484f0d531e653407e610b31a`，`versionCode=53`）；
+   装完立刻回读设备端 `md5sum $(pm path …)`，与本地一致才算数。
+3. 打开 LSPosed 管理器：**「模块 → 万能变焦环」的作用域页里「系统框架 / system」已经自己出现在列表中
+   并处于勾选状态**，右侧标注「推荐应用」。修复前这一页是空的，必须手动点。
+4. 顺手把「启用模块」打开，DB 回读为 `modules_state=(pkg, 0, 1, 0)`、`scope=[(pkg, 'system', 0)]`。
+5. 数据还原：重装后 uid 从 `u0_a342` 变成 `u0_a477`，把 `files/`、`shared_prefs/` 拷回并
+   `chown -R` 到新 uid + `restorecon`，`shared_prefs/hyperzoomring_config.xml` 完好；
+   `kill -9 $(pidof system_server)` 后 `hzr_entry` 里 `build=cfg50`、`recv=ok`，
+   `hzr_cfg=pushed=1 keys=17 … PLUS=scroll reg=ok`。
+
+**判据留档（下次别再从零摸索）**：验证 `scope.list` 只能用卸载重装；覆盖安装看到的是旧勾选。
+另外这条机制**只对"从没勾过作用域"的新装生效**，老用户手动勾过的选择会被保留（这是 LSPosed
+的设计，不是 bug）。
+
+### 版本号与发布准备
+
+- `versionCode 53` / `versionName 1.40.2`；`assembleRelease` 出的
+  `app/build/outputs/apk/release/app-release.apk` 是 **4,746,316 B / md5 `49a2aaa3b31d1ca199c7aae524dab00c`**，
+  仍是调试签名，**必须用 `tools/sign_key.bat` 重签**才能发。
+- 桌面 `打正式签名包.bat` 原来把输出目录硬编码成 `OmniRing 1.40.1`，每次发版都要手改；
+  已改成从 `app/build.gradle.kts` 读 `versionName`（`findstr` + `for /f` 解析，实测输出 `VERSION=[1.40.2]`），
+  输出目录随版本走：`桌面\OmniRing 1.40.2\`。
+- 发布说明稿：`build/store/RN142.md`（`build/` 不入库）。
+- 商店 tag 应为 **`53-1.40.2`**，附件用 `-signed-legacy.apk`。
+
+### 商店页 README 的第二次更新
+
+`Xposed-Modules-Repo/io.github.tvtjiesen.omniring` 的 `README.md` 在 1.40.2 之前补了一条说明：
+安装第 3 步现在写「模块已自带推荐作用域，正常情况下『系统框架』会自动出现在列表里并勾好；
+如果你之前已经给它勾过别的应用，管理器会保留你原来的选择，这时请手动补上」。commit `6736246`，
+回读 1081 B 一致。此前那次（支持范围口径）是 `a7ff0a74`。
+
+### 验证
+
+- `./gradlew --offline -q :app:testDebugUnitTest --rerun`：**39 XML / 249 断言 / 0 失败 0 错误 0 跳过**。
+- `python tools/i18n_check.py`：`values=246 values-b+zh+Hant=246 values-en=246 values-ru=246 OK`。
+- `assembleDebug` → `app-debug.apk` md5 `a39f72bb484f0d531e653407e610b31a` / 47,215,085 B；
+  装机端 md5 回读一致；`versionCode=53 / versionName=1.40.2`。
+- 真机：`pidof lspd`=5090 存活、`/data/adb/lspd/log/` 无新 crash。

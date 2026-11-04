@@ -349,32 +349,35 @@
 - `MODIFICATIONS.md` 是 GPL-3.0 §5a 的显著声明，**每轮都要往下追加**（含版本号口径变更）；`LICENSE` 保持 GPL-3.0；上游署名在 README、本文件、App 内「设置 → 致谢」，**商店 README 里也必须留**。
 - 包名/权限名这类"身份"变更要在 `MODIFICATIONS.md` 与 README 写清（含迁移代价），别只留在提交信息里。
 
-## 12. 此刻状态快照（2026-11-04 15:35 左右）
+## 12. 此刻状态快照（2026-11-04 17:40 左右）
 
-- 工作树：`versionCode 52 / versionName 1.40.1`、`BUILD_TAG cfg50`；单测 **39 XML / 249 断言 0 失败**，
-  四语 **246/246**（新增 `compat_partial_hint` 与 `compat_loaded_disabled`）。
-- **本批没提版本号**：`cfg50` 只修适配卡的判定与文案，`versionCode` 仍是 52，所以商店里最新的
-  还是 `52-1.40.1` 那份；要让这些改动进商店得 bump `53 / 1.40.2` 重新出包（待业主定）。
+- 工作树：`versionCode 53 / versionName 1.40.2`、`BUILD_TAG cfg50`；单测 **39 XML / 249 断言 0 失败**，
+  四语 **246/246**。
+- **`scope.list` 自动勾选已真机验证通过**（2026-11-04 17:33，唯一剩下的未经证实的机制）：
+  卸载重装 → LSPosed 管理器「模块 → 万能变焦环」作用域页**自动出现「系统框架 / system」并已勾选**，
+  右侧标「推荐应用」（截图 `build/lc.png` 装载前、`build/ld.png` 启用后）；
+  DB 回读 `modules_state=(pkg,0,1,0)`、`scope=[(pkg,'system',0)]`。
+  **判据要记牢**：覆盖安装（`adb install -r`）会保留原有作用域，看不出自动勾选；必须卸载重装。
+  另外 `ScopeAdapter` 只在"当前勾选为空"时才补推荐作用域——已经给模块勾过别的应用的老用户不会被动改。
+- 装机数据往返也验过：卸载前 `su` 拷 `/data/data/<pkg>` 到 `/data/local/tmp/omniring_bak/`，
+  重装后把 `files/` `shared_prefs/` 拷回并 `chown` 到新 uid（本次 uid 从 `u0_a342` 变成 `u0_a477`），
+  配置 `shared_prefs/hyperzoomring_config.xml` 完好，`hzr_cfg=pushed=1 keys=17 … PLUS=scroll reg=ok`。
+- **1.40.2 待发布**：`assembleRelease` 已出 `app/build/outputs/apk/release/app-release.apk` 4,746,316 B
+  / md5 `49a2aaa3b31d1ca199c7aae524dab00c`（调试签名，**必须重签**）。
+  桌面 `打正式签名包.bat` 已改成自动读 `versionName`（原来硬编码 `OmniRing 1.40.1` 目录）→ 输出到
+  `桌面\OmniRing <versionName>\`。发布说明稿在 `build/store/RN142.md`。tag 应为 **`53-1.40.2`**。
 - **1.40.1 已发布**：GitHub release `52-1.40.1`（Latest），附件 `OmniRing-1.40.1-signed-legacy.apk` 4,744,375 B，
-  正式签名 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b`（详见 §7）。本地 HEAD = 远程 main = `3ab37a2`。
+  正式签名 `CN=OmniRing…` / SHA-256 `222fc290…45bc1b`（详见 §7）。本地 HEAD = 远程 main。
+- **商店页 README 已更新两次**：先是支持范围口径（commit `a7ff0a74`），然后补"作用域会自动勾选"
+  三步说明（commit `6736246`，1081 B）；两处都已回读校验一致。本地源文件是 `build/store/README.md`
+  （`build/` 不入库）。
 - **OS3 口径已改成"不再适配"**（§6）：`compat_level_partial` → 「未支持（不保证可用）」+ 新增
-  `compat_partial_hint` 提示行；`Compatibility.kt` 两处注释改成终态口径；`CompatibilityTest` 一个用例改名、
-  一个注释改写（断言值未变）；新增 **`docs/SELF-ADAPT.md`**（给想自己改的人）；README 顶部与「已知限制」
-  各一段改成支持范围口径；`build/store/README.md` 的「支持的系统」段同步（**改完待 PUT 到商店仓库**）。
-- 设备 `c05bb07c` 上装的是 **debug 包 1.40.1 + `cfg50`**（md5 `f63c3108f6c7d061fcd4673d86ce1a96`，
-  装在 `/data/app/~~FXv3WCL7qp0qpFDadqtaYg==/…/base.apk`）；
-  `cfg49` 真机端到端已验完（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
-  `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
-- **`cfg50` 的 UI 已肉眼确认**（2026-11-04 17:17，解锁后重 dump + 截图
-  `build/adapt_cfg50.png`）：适配卡显示 `完整适配` / `3/3 项通过` / `模块加载 = 已加载并在跑` /
-  `环数据 = 累计 201 次有效样本`——回滚前那张卡在这台机上同时说"未被加载"和"还没收到"，
-  现在两句都对上了。
-- **`cfg50` 上反馈包复测通过**（17:22，`build/diag_cfg50.txt`，6,213 B）：`hzr_entry` /
-  `hzr_cfg` / `hzr_map` 三行都非空且都是 `build=cfg50`，`hzr_cfg=pushed=4 keys=17 … reg=ok`，
-  `=== logcat (rooted=true, kept=57, probe=true) ===`——即 `cfg49` 的探针修复在这一版没退化。
-- **仍未验**：① `scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
-  ② 商店是否已收录（只能业主手机上搜 omniring）；③ 新文案「未支持（不保证可用）」的显示效果
-  —— 这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器或临时改 `TESTED_MIN_SDK`。
+  `compat_partial_hint` 提示行；新增 **`docs/SELF-ADAPT.md`**（给想自己改的人）。
+- **`cfg50` 的 UI 已肉眼确认**（17:17，`build/adapt_cfg50.png`）：适配卡 `完整适配` / `3/3 项通过` /
+  `模块加载 = 已加载并在跑` / `环数据 = 累计 201 次有效样本`；**反馈包也复测过**（17:22，
+  `build/diag_cfg50.txt`，三行非空、`kept=57`、`rooted=true`）。
+- **仍未验**：① 商店是否已收录（只能业主手机上搜 omniring）；② 新文案「未支持（不保证可用）」
+  的显示效果——这台机是 OS4 只会显示 `完整适配`，PARTIAL 那一支要看 OS3 机器。
 - **待业主定**：`hzr_scrub_y`（他机 0.27 vs 代码默认/README 0.45，我建议两边都不动）。
 
 ## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）
