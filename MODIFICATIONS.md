@@ -563,3 +563,62 @@ Settings.Global 写没落地**（开机头几十秒 SettingsProvider 还不接�
 - 装完后设备从 Windows PnP 消失（`USB\VID_18D1&PID_4E11\C05BB07C` 不见了），
   本批最后一次构建（含 `keepCrashLine`）**没有跑到真机上**；已在设备上跑过的是同一份
   源码的上一版（差别只有 crash 段白名单）。
+
+## 第十九批（2026-11-04）· 坏包拖死 LSPosed 的事故复盘与恢复（无代码改动）
+
+本批**没有改任何源码**，只记录一次真机事故的取证与恢复，以及由此定下的纪律。
+
+### 事故经过
+
+2026-11-03 20:36 我用 `adb install -r` 装 `cfg48` 调试包，adb 报 `Success`，但这次传输在抖动的
+USB 链路上写出了**校验和损坏的 APK**：设备上 `base.apk` 的 md5 是 `ae05aae09a3aa11e8ff0d1590db01398`，
+而本地产物是 `1cd70569d11771d3fc4ce7edf654d7cd`。App 一启动就
+`ClassNotFoundException: androidx.startup.InitializationProvider` +
+`Failure to verify dex file ...: Bad checksum (419d6781, expected 57376778)`。
+
+更严重的连带后果是**整个 LSPosed 全废**：lspd 在 `LSPSystemServerService: starting new bridge`
+时去解析已装模块的 APK，碰到这个坏包就在 `libdaemon.so` 的 JNI 里段错误
+（`Fatal signal 11 (SIGSEGV), code 2 (SEGV_ACCERR)`，`exited unexpectedly, code=139`，存活约 1.5 秒），
+`modules_*.log` 只留一行 `----part 1 start----`。业主看到的现象是「连 lsp 都炸了」。
+
+### 取证（决定性对照实验）
+
+| # | 设备上的包 | lspd 启动 | system_server 重启 | 结果 |
+|---|---|---|---|---|
+| 1 | 坏包 `ae05aae0…` | 系统开机自启 | — | 1.5 秒内 SIGSEGV（原始症状） |
+| 2 | 坏包 `ae05aae0…` | 手动 `daemon --force` | 不重启 | 存活 30+ 秒不崩 |
+| 3 | 坏包 `ae05aae0…` | 手动（已在跑） | `kill -9 system_server` | 立刻 SIGSEGV |
+| 4 | 坏包 + 本模块 `enabled=0` | 手动 | `kill -9 system_server` | 存活、模块日志正常增长 |
+| 5 | **好包 `1cd70569…`** + 本模块 `enabled=1` | 手动 | `kill -9 system_server` ×2 | **全程存活，未崩** |
+| 6 | 好包 | **整机 reboot**（走正常开机流程） | — | **存活，6 个模块正常加载** |
+
+结论：触发点是"解析模块 APK"这一步，**坏包是唯一变量**；禁掉本模块也能绕过（第 4 行），
+但那只是掩盖问题（坏包仍在设备上，随时会把别的模块解析路径带崩）。
+
+### 恢复动作（全部已执行并核验）
+
+1. 重装好包，**核对设备端 md5** = `1cd70569d11771d3fc4ce7edf654d7cd`。
+2. 还原 LSPosed 配置库 `/data/adb/lspd/config/modules_config.db{,-wal,-shm}`
+   （备份放在 `/data/local/tmp/lspdb_backup/`；实验期曾把本模块 `enabled` 置 0，必须还原）。
+3. 整机 `adb reboot`，让 LSPosed 走正常开机流程。
+4. 核验：`pidof lspd` = 5090 存活 200+ 秒、crash 文件 0 个、`modules_*.log` 195 KB、
+   正常加载 6 个模块（`btm.m.os4.systemuihook` / `com.juren233.hyperlyricsenhanced` /
+   `com.kiminonawa.HyperLight` / `com.tsng.hidemyapplist` / `com.xposed.wetypehook` /
+   `moe.chenxy.huaweipods`）。
+5. **业主数据零漂移核验**：16 个模块的 `enabled` 值逐一比对全一致；`scope` 表 134 行完全一致；
+   本模块 `enabled=1`。
+
+### 由此定下的纪律（已写进 HANDOVER §10）
+
+- **`adb install` 的 `Success` 不是证据。** 装完必须
+  `su -c 'md5sum $(pm path <pkg> | sed s/package://)'` 与本地 md5 比对，不一致就重装。
+- 大文件走这条 USB 链路要用 Windows 原生 Python 驱动 adb（`subprocess.run`，参数不过 MSYS），
+  别信 bash 里的 adb：MSYS 会把远端路径改写成 `E:/dev/msys64/...`，传输超 ~4 MB 就拉挂链路。
+- 怀疑 LSPosed 炸了，先看 `/data/adb/lspd/log/daemon-*-crash-*.log` 的 `Fatal signal` 与
+  backtrace 落在哪个 `.so`，再检查设备上各模块 `base.apk` 的 md5 是否与本地产物一致。
+
+### 本批顺带补记（第十八批"没验的"一条已补上）
+
+第十八批留了两条没验。本轮把第一条补上了：**含 `keepCrashLine` 的那版（`1cd70569…`）确实在
+真机上跑过**，装的就是它，探针回读 `build=cfg48`。第二条（`scope.list` 自动勾选）仍需
+卸载重装才看得出，**依然未验**。

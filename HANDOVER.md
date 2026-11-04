@@ -247,6 +247,19 @@
 - 同一条链路上 `adb push` 超过 ~4 MB 就容易把 USB 链路拉挂（`device offline` / 设备从
   `adb devices` 彻底消失，Windows PnP 里 `USB\VID_18D1&PID_4E11\C05BB07C` 也随之不见）。
   恢复只能靠业主重新插线；`kill-server`/`start-server` 在设备已从 PnP 消失时无效。
+- **坏包会把整个 LSPosed 拖死（2026-11-04 事故，业主报"连lsp都炸了"）**：lspd 在
+  `LSPSystemServerService: starting new bridge` 时解析已装模块的 APK，碰到 dex 校验和损坏的包
+  就在 `libdaemon.so` 的 JNI 里 `Fatal signal 11 (SIGSEGV, SEGV_ACCERR)`，1.5 秒内 exit 139，
+  `modules_*.log` 只留一行 `----part 1 start----`。症状看起来像 LSPosed 自己坏了（`pidof lspd` 恒空、
+  system_server 反复 `E LSPosedBridge: service is dead`），实际上是 Device 上那个 md5 不对的包。
+  **判据**：坏包在设备上的 md5 与本地产物不符 + App 一启动就 `Bad checksum`。**修法**：换回好包
+  （装完核对 md5）→ 还原 `modules_config.db{,-wal,-shm}` → 整机重启。取证细节见
+  `build/lsposed_crash_forensics.md`（本地产物，不入库）。
+  **排查套路（省时间）**：① `su -c 'pidof lspd'` 空 ⇒ 框架没在跑；② 找
+  `/data/adb/lspd/log/daemon-*-crash-*.log` 看 `Fatal signal` 与 backtrace 落在哪个 `.so`；
+  ③ 手动 `su -c '/data/adb/modules/zygisk_lsposed/daemon --force &'` 能起来且不崩 ⇒ 不是 daemon 二进制坏了，
+  是"某个输入"坏了；④ 再 `kill -9 $(pidof system_server)` 复现（崩溃点只在 bridge 建立时）。
+  ⑤ DB 里把怀疑模块 `enabled` 置 0 可做二分（改前先备份 `db{,-wal,-shm}` 三个文件，改完要还原）。
 
 
 ## 11. Git 与许可纪律
