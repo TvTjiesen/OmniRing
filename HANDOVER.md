@@ -365,8 +365,10 @@
   装在 `/data/app/~~FXv3WCL7qp0qpFDadqtaYg==/…/base.apk`）；
   `cfg49` 真机端到端已验完（自测按钮连按两次都有 `PROBE start`、反馈包三行非空、crash 段只剩 10 行
   `DeadSystemException`、logcat 噪声 0 行）——详见 `MODIFICATIONS.md` 第二十一批。
-- **未验**：`scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
-  商店是否已收录（只能业主手机上搜 omniring）。
+- **未验**：① 适配卡那一眼 —— `cfg50` 改的就是这张卡的显示，但 dump 时手机锁屏
+  （`mWakefulness=Dozing`、`isKeyguardShowing=true`），截到的是通知栏，需要解锁后再看一眼；
+  ② `scope.list` 自动勾选（要卸载重装才看得出，`adb install -r` 会保留已勾选的作用域）；
+  ③ 商店是否已收录（只能业主手机上搜 omniring）。
 - **待业主定**：`hzr_scrub_y`（他机 0.27 vs 代码默认/README 0.45，我建议两边都不动）。
 
 ## 13. 历史快照（2026-11-02 13:10，已被 §12 取代）
