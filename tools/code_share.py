@@ -95,7 +95,9 @@ def main():
     for label, key, n, tot in rows:
         pct = "" if key == "removed" else f"{tot * 100.0 / base:5.1f}%"
         print(f"  {label:16s} {n:3d} 个 .kt {tot:6d} 行 {pct}")
-    print(f"  ⇒ 上游一行没动的 .kt 合计 {verbatim} 行，占现体量 {verbatim * 100.0 / base:.1f}%")
+    # 这里不要用 ⇒ 这类符号：Windows 控制台是 GBK，print 会抛 UnicodeEncodeError，
+    # 统计已经打完却在最后一行崩掉（2026-11-04 踩过两次）。
+    print(f"  => 上游一行没动的 .kt 合计 {verbatim} 行，占现体量 {verbatim * 100.0 / base:.2f}%")
 
     print("\n非 .kt 的逐字节相同文件（真正没动过的上游文件）：")
     same_other = [x for x in cats["identical"] + cats["same_text"] if not x.endswith(".kt")]

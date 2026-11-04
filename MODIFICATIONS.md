@@ -969,3 +969,25 @@ val loadedState = when (verdict) {
   让本地与远程字节一致。支持 `--dry-run` / `--repo` / `--branch`。
 - **时区教训**：复现提交对象时时区不能凭经验写 —— `3ab37a2` 要 `+0000`，
   `661b99f`/`c2f2e94`/`42e3f83`/`5657bb5` 要 `+0800`，脚本里两种都试。
+## 第二十七批（2026-11-04）· 代码来源占比重新实测（README 数字过期）
+
+给酷安换新文案时被业主问"这次上游的代码占比还剩多少"，复跑 `tools/code_share.py` 发现 README 那张表还停在 2026-11-02 的数（132 个 .kt / 17369 行），与当时的实际不符 —— 之后又落了 `cfg47`~`cfg50` 四批代码（2,300+ 行）与表冠 v2、`docs/SELF-ADAPT.md`，分母变大而分子没变。
+
+**复跑结果（2026-11-04，上游 HEAD `55b3bb7`）**
+
+| 来源 | .kt 文件 | 行 |
+| --- | --- | --- |
+| 本仓库新增 | 105 | 14198 |
+| 重写上游文件 | 22 | 3608 |
+| 上游一行没动（仅换行差） | 8 | 227 |
+| 上游有、本仓库删掉 | 1 | 8 |
+| **现体量** | **135** | **18033** |
+
+上游 `app/src` 31 个 .kt / 2153 行 ⇒ **原样留下的 227 行只占现体量 1.26%**（上一版记 1.3%）。
+逐字节相同的只剩 3 个非代码文件：`assets/xposed_init`、`resources/META-INF/yukihookapi_init`、`res/values/xposed_scope.xml`。
+
+**同时修掉 `tools/code_share.py` 的一个真 bug**：末尾那行 `print(f"  ⇒ 上游一行没动的 .kt 合计 ...")` 里的 `⇒`（U+21D2）在 Windows GBK stdout 下必然抛 `UnicodeEncodeError`，**统计已经全部打完，程序却以非零码退出** —— 用 `>/dev/null 2>&1` 或只看退出码的写法会把「跑成功」判成「跑失败」。改成 ASCII 的 `=>`，百分比精度从 `.1f` 提到 `.2f`。
+
+**改动**：`README.md` §代码来源与占比（表 + 复核日期 + 1.26%）；`tools/code_share.py` 末行。
+**验证**：`python tools/code_share.py --upstream "E:/dev/tmp_upstream_hzr"` → `EXIT=0`，输出与上表一致。
+
